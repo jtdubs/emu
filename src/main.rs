@@ -524,6 +524,35 @@ impl W65C02S {
                         self.tcu = 0;
                     }
 
+                    // BNE r
+                    ((Instruction::BNE, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp = self.fetch(bus) as u16;
+                        if self.p & (CPUFlag::Zero as u8) == 0 {
+                            self.tcu += 1;
+                        } else {
+                            self.tcu = 0;
+                        }
+                    }
+                    ((Instruction::BNE, AddressMode::ProgramCounterRelative), 2) => {
+                        self.pc += self.temp;
+                    }
+
+                    // DEX i
+                    ((Instruction::DEX, AddressMode::Implied), 1) => {
+                        self.x = self.x.wrapping_sub(1);
+                        self.update_zero_flag(self.x);
+                        self.update_negative_flag(self.x);
+                        self.tcu = 0;
+                    }
+
+                    // DEY i
+                    ((Instruction::DEY, AddressMode::Implied), 1) => {
+                        self.y = self.y.wrapping_sub(1);
+                        self.update_zero_flag(self.y);
+                        self.update_negative_flag(self.y);
+                        self.tcu = 0;
+                    }
+
                     // JSR a
                     ((Instruction::JSR, AddressMode::Absolute), 1) => {
                         self.temp = self.fetch(bus) as u16;
@@ -581,6 +610,14 @@ impl W65C02S {
                         self.tcu = 0;
                     }
 
+                    // LDY #
+                    ((Instruction::LDY, AddressMode::ImmediateAddressing), 1) => {
+                        self.y = self.fetch(bus);
+                        self.update_zero_flag(self.y);
+                        self.update_negative_flag(self.y);
+                        self.tcu = 0;
+                    }
+
                     // NOP i
                     ((Instruction::NOP, AddressMode::Implied), 1) => {
                         self.tcu = 0;
@@ -621,6 +658,34 @@ impl W65C02S {
                     }
                     ((Instruction::STA, AddressMode::Absolute), 3) => {
                         bus.write(self.temp, self.a);
+                        self.tcu = 0;
+                    }
+
+                    // STX a
+                    ((Instruction::STX, AddressMode::Absolute), 1) => {
+                        self.temp = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STX, AddressMode::Absolute), 2) => {
+                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STX, AddressMode::Absolute), 3) => {
+                        bus.write(self.temp, self.x);
+                        self.tcu = 0;
+                    }
+
+                    // STZ a
+                    ((Instruction::STZ, AddressMode::Absolute), 1) => {
+                        self.temp = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STZ, AddressMode::Absolute), 2) => {
+                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STZ, AddressMode::Absolute), 3) => {
+                        bus.write(self.temp, 0);
                         self.tcu = 0;
                     }
 
