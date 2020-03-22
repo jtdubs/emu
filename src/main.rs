@@ -706,7 +706,6 @@ impl W65C02S {
                     ((Instruction::JSR, AddressMode::Absolute), 5) => {
                         self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
                         self.pc = self.temp16;
-                        self.temp16 = 0;
                         self.tcu = 0;
                     }
 
@@ -723,7 +722,14 @@ impl W65C02S {
                         self.a = bus.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
-                        self.temp16 = 0;
+                        self.tcu = 0;
+                    }
+
+                    // LDA (zp),y
+                    ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                        self.a = bus.read(self.temp16 + (self.y as u16));
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
 
@@ -768,7 +774,6 @@ impl W65C02S {
                     ((Instruction::RTS, AddressMode::Stack), 5) => {
                         self.pc = self.temp16;
                         self.fetch(bus);
-                        self.temp16 = 0;
                         self.tcu = 0;
                     }
 
@@ -861,6 +866,20 @@ impl W65C02S {
                     // Default for Zero Page
                     ((_, AddressMode::ZeroPage), 1) => {
                         self.temp16 = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+
+                    // Default for Zero Page Indirect Indexed With Y
+                    ((_, AddressMode::ZeroPageIndirectIndexedWithY), 1) => {
+                        self.temp8 = self.fetch(bus);
+                        self.tcu += 1;
+                    }
+                    ((_, AddressMode::ZeroPageIndirectIndexedWithY), 2) => {
+                        self.temp16 = bus.read(self.temp8 as u16) as u16;
+                        self.tcu += 1;
+                    }
+                    ((_, AddressMode::ZeroPageIndirectIndexedWithY), 3) => {
+                        self.temp16 = (bus.read((self.temp8 + 1) as u16) as u16) << 8;
                         self.tcu += 1;
                     }
 
