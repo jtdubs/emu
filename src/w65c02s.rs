@@ -1,6 +1,6 @@
 use std::fmt;
 use log::debug;
-use crate::bus::Bus;
+use crate::bus::{Bus,BusMember};
 
 #[derive(Debug)]
 pub enum CPUState {
@@ -415,9 +415,9 @@ impl fmt::Debug for W65C02S {
 }
 
 impl W65C02S {
-    pub fn new(bus: Bus) -> W65C02S {
+    pub fn new() -> W65C02S {
         W65C02S {
-            bus:    bus,
+            bus:    Bus::new(),
             state:  CPUState::Init { cycle: 0 },
             ir:     (Instruction::NOP, AddressMode::Implied),
             tcu:    0,
@@ -430,6 +430,10 @@ impl W65C02S {
             temp8:  0,
             temp16: 0,
         }
+    }
+
+    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn BusMember>) {
+        self.bus.attach(addr_mask, addr_val, member);
     }
 
     pub fn is_halted(&self) -> bool {

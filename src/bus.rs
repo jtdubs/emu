@@ -16,7 +16,7 @@ impl Bus {
         }
     }
 
-    pub fn add_member(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn BusMember>) {
+    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn BusMember>) {
         self.members.push((addr_mask, addr_val, member));
     }
 

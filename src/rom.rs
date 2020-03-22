@@ -13,6 +13,10 @@ impl ROM {
         ROM { mem: storage }
     }
 
+    pub fn load(path : &str) -> ROM {
+        ROM { mem: fs::read(path).unwrap() }
+    }
+
     pub fn map(&mut self, base_addr : u16, path : &str) {
         debug!("MAP @ {:04x} = {}", base_addr, path);
         fs::read(path).unwrap().iter().enumerate().for_each(move |(ix, &val)| { self.mem[(base_addr as usize) + ix] = val })
