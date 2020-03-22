@@ -396,6 +396,18 @@ fn decode(val : u8) -> Option<Opcode> {
 }
 
 #[derive(Debug)]
+pub enum CPUFlag {
+    Carry    = 0x01,
+    Zero     = 0x02,
+    IRQB     = 0x04,
+    Decimal  = 0x08,
+    BRK      = 0x10,
+    User     = 0x20,
+    Overflow = 0x40,
+    Negative = 0x80,
+}
+
+#[derive(Debug)]
 pub struct W65C02S {
     pub state : CPUState, // cpu state
     pub ir    : Opcode,   // instruction register
@@ -403,6 +415,7 @@ pub struct W65C02S {
     pub a     : u8,       // accumulator register
     pub x     : u8,       // index register 'x'
     pub y     : u8,       // index register 'y'
+    pub p     : u8,       // processor status register
     pub pc    : u16,      // program counter register
     pub s     : u8,       // stack pointer register
     pub temp  : u16,      // temporary storage
@@ -417,6 +430,7 @@ impl W65C02S {
             a:     0,
             x:     0,
             y:     0,
+            p:     0,
             pc:    0,
             s:     0,
             temp:  0,
