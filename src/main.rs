@@ -409,31 +409,33 @@ pub enum CPUFlag {
 
 #[derive(Debug)]
 pub struct W65C02S {
-    pub state : CPUState, // cpu state
-    pub ir    : Opcode,   // instruction register
-    pub tcu   : u8,       // timing control unit
-    pub a     : u8,       // accumulator register
-    pub x     : u8,       // index register 'x'
-    pub y     : u8,       // index register 'y'
-    pub p     : u8,       // processor status register
-    pub pc    : u16,      // program counter register
-    pub s     : u8,       // stack pointer register
-    pub temp  : u16,      // temporary storage
+    pub state  : CPUState, // cpu state
+    pub ir     : Opcode,   // instruction register
+    pub tcu    : u8,       // timing control unit
+    pub a      : u8,       // accumulator register
+    pub x      : u8,       // index register 'x'
+    pub y      : u8,       // index register 'y'
+    pub p      : u8,       // processor status register
+    pub pc     : u16,      // program counter register
+    pub s      : u8,       // stack pointer register
+    pub temp8  : u8,      // temporary storage
+    pub temp16 : u16,      // temporary storage
 }
 
 impl W65C02S {
     pub fn new() -> W65C02S {
         W65C02S {
-            state: CPUState::Init { cycle: 0 },
-            ir:    (Instruction::NOP, AddressMode::Implied),
-            tcu:   0,
-            a:     0,
-            x:     0,
-            y:     0,
-            p:     0,
-            pc:    0,
-            s:     0,
-            temp:  0,
+            state:  CPUState::Init { cycle: 0 },
+            ir:     (Instruction::NOP, AddressMode::Implied),
+            tcu:    0,
+            a:      0,
+            x:      0,
+            y:      0,
+            p:      0,
+            pc:     0,
+            s:      0,
+            temp8:  0,
+            temp16: 0,
         }
     }
 
@@ -477,6 +479,14 @@ impl W65C02S {
             self.p |= CPUFlag::Negative as u8;
         } else {
             self.p &= !(CPUFlag::Negative as u8);
+        }
+    }
+
+    fn update_carry_flag(&mut self, val : bool) {
+        if val {
+            self.p |= CPUFlag::Carry as u8;
+        } else {
+            self.p &= !(CPUFlag::Carry as u8);
         }
     }
 
@@ -524,9 +534,73 @@ impl W65C02S {
                         self.tcu = 0;
                     }
 
+                    // ASL a
+                    ((Instruction::ASL, AddressMode::Absolute), 1) => {
+                        self.temp16 = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::Absolute), 2) => {
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::Absolute), 3) => {
+                        self.temp8 = bus.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::Absolute), 4) => {
+                        self.update_carry_flag(self.temp8 & 0x80 == 0);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::Absolute), 5) => {
+                        bus.write(self.temp16, self.temp8);
+                        self.tcu = 0;
+                    }
+
+                    // BCS r
+                    ((Instruction::BCS, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp8 = self.fetch(bus);
+                        if self.p & (CPUFlag::Carry as u8) == 0 {
+                            self.tcu = 0;
+                        } else {
+                            self.tcu += 1;
+                        }
+                    }
+                    ((Instruction::BCS, AddressMode::ProgramCounterRelative), 2) => {
+                        self.pc += self.temp8 as u16;
+                        self.tcu = 0;
+                    }
+
+                    // BEQ r
+                    ((Instruction::BEQ, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp8 = self.fetch(bus);
+                        if self.p & (CPUFlag::Zero as u8) == 0 {
+                            self.tcu = 0;
+                        } else {
+                            self.tcu += 1;
+                        }
+                    }
+                    ((Instruction::BEQ, AddressMode::ProgramCounterRelative), 2) => {
+                        self.pc += self.temp8 as u16;
+                        self.tcu = 0;
+                    }
+
+                    // BMI r
+                    ((Instruction::BMI, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp8 = self.fetch(bus);
+                        if self.p & (CPUFlag::Negative as u8) == 0 {
+                            self.tcu = 0;
+                        } else {
+                            self.tcu += 1;
+                        }
+                    }
+                    ((Instruction::BMI, AddressMode::ProgramCounterRelative), 2) => {
+                        self.pc += self.temp8 as u16;
+                        self.tcu = 0;
+                    }
+
                     // BNE r
                     ((Instruction::BNE, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp8 = self.fetch(bus);
                         if self.p & (CPUFlag::Zero as u8) == 0 {
                             self.tcu += 1;
                         } else {
@@ -534,7 +608,32 @@ impl W65C02S {
                         }
                     }
                     ((Instruction::BNE, AddressMode::ProgramCounterRelative), 2) => {
-                        self.pc += self.temp;
+                        self.pc += self.temp8 as u16;
+                        self.tcu = 0;
+                    }
+
+                    // BPL r
+                    ((Instruction::BPL, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp8 = self.fetch(bus);
+                        if self.p & (CPUFlag::Negative as u8) == 0 {
+                            self.tcu += 1;
+                        } else {
+                            self.tcu = 0;
+                        }
+                    }
+                    ((Instruction::BPL, AddressMode::ProgramCounterRelative), 2) => {
+                        self.pc += self.temp8 as u16;
+                        self.tcu = 0;
+                    }
+
+                    // CMP #
+                    ((Instruction::CMP, AddressMode::ImmediateAddressing), 1) => {
+                        let val = self.fetch(bus);
+                        self.update_carry_flag(self.a >= val);
+                        let val = self.a.wrapping_sub(val);
+                        self.update_zero_flag(val);
+                        self.update_negative_flag(val);
+                        self.tcu = 0;
                     }
 
                     // DEX i
@@ -553,9 +652,49 @@ impl W65C02S {
                         self.tcu = 0;
                     }
 
+                    // INC a
+                    ((Instruction::INC, AddressMode::Absolute), 1) => {
+                        self.temp16 = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::INC, AddressMode::Absolute), 2) => {
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::INC, AddressMode::Absolute), 3) => {
+                        self.temp8 = bus.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::INC, AddressMode::Absolute), 4) => {
+                        self.temp8 += 1;
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::INC, AddressMode::Absolute), 5) => {
+                        bus.write(self.temp16, self.temp8);
+                        self.tcu = 0;
+                    }
+
+                    // INX i
+                    ((Instruction::INX, AddressMode::Implied), 1) => {
+                        self.x = self.x.wrapping_add(1);
+                        self.update_zero_flag(self.x);
+                        self.update_negative_flag(self.x);
+                        self.tcu = 0;
+                    }
+
+                    // INY i
+                    ((Instruction::INY, AddressMode::Implied), 1) => {
+                        self.y = self.y.wrapping_add(1);
+                        self.update_zero_flag(self.y);
+                        self.update_negative_flag(self.y);
+                        self.tcu = 0;
+                    }
+
                     // JSR a
                     ((Instruction::JSR, AddressMode::Absolute), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp16 = self.fetch(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 2) => {
@@ -571,9 +710,9 @@ impl W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 5) => {
-                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
-                        self.pc = self.temp;
-                        self.temp = 0;
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
+                        self.pc = self.temp16;
+                        self.temp16 = 0;
                         self.tcu = 0;
                     }
 
@@ -587,18 +726,18 @@ impl W65C02S {
 
                     // LDA a
                     ((Instruction::LDA, AddressMode::Absolute), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp16 = self.fetch(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::LDA, AddressMode::Absolute), 2) => {
-                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
                         self.tcu += 1;
                     }
                     ((Instruction::LDA, AddressMode::Absolute), 3) => {
-                        self.a = bus.read(self.temp);
+                        self.a = bus.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
-                        self.temp = 0;
+                        self.temp16 = 0;
                         self.tcu = 0;
                     }
 
@@ -633,59 +772,77 @@ impl W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 3) => {
-                        self.temp = self.pop(bus) as u16;
+                        self.temp16 = self.pop(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 4) => {
-                        self.temp |= (self.pop(bus) as u16) << 8;
+                        self.temp16 |= (self.pop(bus) as u16) << 8;
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 5) => {
-                        self.pc = self.temp;
+                        self.pc = self.temp16;
                         self.fetch(bus);
-                        self.temp = 0;
+                        self.temp16 = 0;
                         self.tcu = 0;
                     }
 
                     // STA a
                     ((Instruction::STA, AddressMode::Absolute), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp16 = self.fetch(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::STA, AddressMode::Absolute), 2) => {
-                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
                         self.tcu += 1;
                     }
                     ((Instruction::STA, AddressMode::Absolute), 3) => {
-                        bus.write(self.temp, self.a);
+                        bus.write(self.temp16, self.a);
+                        self.tcu = 0;
+                    }
+
+                    // STA a,y
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 1) => {
+                        self.temp16 = self.fetch(bus) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 2) => {
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3) => {
+                        self.temp16 += self.y as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4) => {
+                        bus.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
                     // STX a
                     ((Instruction::STX, AddressMode::Absolute), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp16 = self.fetch(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::STX, AddressMode::Absolute), 2) => {
-                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
                         self.tcu += 1;
                     }
                     ((Instruction::STX, AddressMode::Absolute), 3) => {
-                        bus.write(self.temp, self.x);
+                        bus.write(self.temp16, self.x);
                         self.tcu = 0;
                     }
 
                     // STZ a
                     ((Instruction::STZ, AddressMode::Absolute), 1) => {
-                        self.temp = self.fetch(bus) as u16;
+                        self.temp16 = self.fetch(bus) as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::STZ, AddressMode::Absolute), 2) => {
-                        self.temp = self.temp | ((self.fetch(bus) as u16) << 8);
+                        self.temp16 = self.temp16 | ((self.fetch(bus) as u16) << 8);
                         self.tcu += 1;
                     }
                     ((Instruction::STZ, AddressMode::Absolute), 3) => {
-                        bus.write(self.temp, 0);
+                        bus.write(self.temp16, 0);
                         self.tcu = 0;
                     }
 
