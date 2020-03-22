@@ -900,17 +900,6 @@ impl W65C02S {
                         self.tcu += 1;
                     }
 
-                    // Default for Program Counter Relative
-                    ((_, AddressMode::ProgramCounterRelative), 2) => {
-                        let offset = self.temp8 as i8;
-                        if offset >= 0 {
-                            self.pc += offset as u16;
-                        } else {
-                            self.pc -= offset.abs() as u16;
-                        }
-                        self.tcu = 0;
-                    }
-
                     // Default for Absolute Indexed With X
                     ((_, AddressMode::AbsoluteIndexedWithX), 1) => {
                         self.temp16 = self.fetch() as u16;
@@ -937,6 +926,17 @@ impl W65C02S {
                     ((_, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.temp16 += self.y as u16;
                         self.tcu += 1;
+                    }
+
+                    // Default for Program Counter Relative
+                    ((_, AddressMode::ProgramCounterRelative), 2) => {
+                        let offset = self.temp8 as i8;
+                        if offset >= 0 {
+                            self.pc += offset as u16;
+                        } else {
+                            self.pc -= offset.abs() as u16;
+                        }
+                        self.tcu = 0;
                     }
 
                     // Default for Zero Page
