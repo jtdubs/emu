@@ -13,6 +13,7 @@ fn main() {
     let ram = Rc::new(Mutex::new(RAM::new(0x4000)));
     let rom = Rc::new(Mutex::new(ROM::load("rom.bin")));
     let per = Rc::new(Mutex::new(W65C22::new()));
+    let ada = Rc::new(Mutex::new(HD44780UAdapter::new()));
     let dsp = Rc::new(Mutex::new(HD44780U::new()));
 
     clk.attach(cpu.clone());
@@ -28,7 +29,13 @@ fn main() {
 
     {
         let mut p = per.lock().unwrap();
-        p.attach_b(dsp);
+        p.attach_a(ada.clone());
+        p.attach_b(ada.clone());
+    }
+
+    {
+        let mut a = ada.lock().unwrap();
+        a.attach(dsp);
     }
 
     while !cpu.lock().unwrap().is_halted() {

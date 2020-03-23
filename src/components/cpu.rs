@@ -451,21 +451,21 @@ impl W65C02S {
         self.attachments.push((addr_mask, addr_val, member));
     }
 
-    fn read(&self, addr: u16) -> u8 {
-        debug!("R @ {:04x}", addr);
+    fn with_attachment<F, R>(&self, addr: u16, f : F) -> R
+        where F : Fn(u16, &Rc<Mutex<dyn Attachment>>) -> R {
 
-        let mut selected_members = self
+        let mut attachments = self
             .attachments
             .iter()
             .filter(move |&(mask, val, _)| (addr & mask) == *val);
-        match selected_members.next() {
+
+        match attachments.next() {
             None => {
                 panic!("no bus member responded to addr: {:04x}", addr);
             }
-            Some((mask, _, member)) => match selected_members.next() {
+            Some((mask, _, member)) => match attachments.next() {
                 None => {
-                    let data = member.lock().unwrap().read(addr & !mask);
-                    data
+                    f(addr & !mask, member)
                 }
                 _ => {
                     panic!("multiple bus members responded to addr: {:04x}", addr);
@@ -474,24 +474,14 @@ impl W65C02S {
         }
     }
 
+    fn read(&self, addr: u16) -> u8 {
+        debug!("R @ {:04x}", addr);
+        self.with_attachment(addr, |a, m| { m.lock().unwrap().read(a) })
+    }
+
     fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
-
-        let mut selected_members = self
-            .attachments
-            .iter_mut()
-            .filter(|(mask, val, _)| (addr & mask) == *val);
-        match selected_members.next() {
-            None => {
-                panic!("no bus member responded to addr: {:04x}", addr);
-            }
-            Some((mask, _, member)) => match selected_members.next() {
-                None => member.lock().unwrap().write(addr & !*mask, data),
-                _ => {
-                    panic!("multiple bus members responded to addr: {:04x}", addr);
-                }
-            },
-        }
+        self.with_attachment(addr, |a, m| { m.lock().unwrap().write(a, data) })
     }
 
     fn push(&mut self, val: u8) {
@@ -591,7 +581,6 @@ impl clock::Attachment for W65C02S {
 
                     // AND a
                     ((Instruction::AND, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.read(self.temp16);
                         self.a &= self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -600,8 +589,8 @@ impl clock::Attachment for W65C02S {
 
                     // ASL A
                     ((Instruction::ASL, AddressMode::Accumulator), 1) => {
-                        self.update_carry_flag(self.a & 0x80 == 0);
-                        self.a = self.a << 1;
+                        self.update_carry_flag(self.a & 0x80 == 0x80);
+                        self.a <<= 1;
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -613,7 +602,7 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::ASL, AddressMode::Absolute), 4) => {
-                        self.update_carry_flag(self.temp8 & 0x80 == 0);
+                        self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 <<= 1;
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);

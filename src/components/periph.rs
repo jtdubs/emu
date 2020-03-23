@@ -6,9 +6,12 @@ use std::sync::Mutex;
 use crate::components::clock;
 use crate::components::cpu;
 
+#[derive(Debug)]
+pub enum Port { A, B }
+
 pub trait Attachment {
-    fn read(&self) -> u8;
-    fn write(&self, val: u8);
+    fn read(&self, p : Port) -> u8;
+    fn write(&mut self, p : Port, val : u8);
 }
 
 pub struct W65C22 {
@@ -85,17 +88,13 @@ impl cpu::Attachment for W65C22 {
         let data = match addr {
             0x0 => {
                 if let Some(b) = &self.port_b {
-                    (self.orb & self.ddrb) | (b.lock().unwrap().read() & !self.ddrb)
+                    (self.orb & self.ddrb) | (b.lock().unwrap().read(Port::B) & !self.ddrb)
                 } else {
                     self.orb
                 }
             }
             0x1 => {
-                if let Some(a) = &self.port_a {
-                    (self.ora & self.ddra) | (a.lock().unwrap().read() & !self.ddra)
-                } else {
-                    self.ora
-                }
+                unimplemented!();
             }
             0x2 => self.ddrb,
             0x3 => self.ddra,
@@ -110,7 +109,13 @@ impl cpu::Attachment for W65C22 {
             0xC => self.pcr,
             0xD => self.ifr,
             0xE => self.ier,
-            0xF => self.ora,
+            0xF => {
+                if let Some(a) = &self.port_a {
+                    (self.ora & self.ddra) | (a.lock().unwrap().read(Port::A) & !self.ddra)
+                } else {
+                    self.ora
+                }
+            }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         };
         debug!("R @ {:04x} = {:02x}", addr, data);
@@ -123,14 +128,11 @@ impl cpu::Attachment for W65C22 {
             0x0 => {
                 self.orb = data & self.ddrb;
                 if let Some(b) = &mut self.port_b {
-                    b.lock().unwrap().write(self.orb);
+                    b.lock().unwrap().write(Port::B, self.orb);
                 }
             }
             0x1 => {
-                self.ora = data & self.ddra;
-                if let Some(a) = &mut self.port_a {
-                    a.lock().unwrap().write(self.ora);
-                }
+                unimplemented!();
             }
             0x2 => {
                 self.ddrb = data;
@@ -172,7 +174,10 @@ impl cpu::Attachment for W65C22 {
                 self.ier = data;
             }
             0xF => {
-                self.ora = data;
+                self.ora = data & self.ddra;
+                if let Some(a) = &mut self.port_a {
+                    a.lock().unwrap().write(Port::A, self.ora);
+                }
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
