@@ -1,10 +1,9 @@
 use std::fmt;
 use log::debug;
-use crate::bus::{Bus,BusMember};
 
 #[derive(Debug)]
 pub enum CPUState {
-    Init { cycle : u8 },
+    Init(u8),
     Run,
     Halt
 }
@@ -34,8 +33,8 @@ pub enum Instruction {
     ADC,
     AND,
     ASL,
-    BBR { n: u8 },
-    BBS { n: u8 },
+    BBR(u8),
+    BBS(u8),
     BCC,
     BCS,
     BEQ,
@@ -77,7 +76,7 @@ pub enum Instruction {
     PLP,
     PLX,
     PLY,
-    RMB { n : u8 },
+    RMB(u8),
     ROL,
     ROR,
     RTI,
@@ -86,7 +85,7 @@ pub enum Instruction {
     SEC,
     SED,
     SEI,
-    SMB { n : u8 },
+    SMB(u8),
     STA,
     STP,
     STX,
@@ -133,23 +132,23 @@ fn decode(val : u8) -> Option<Opcode> {
         0x06 => Some((Instruction::ASL, AddressMode::ZeroPage)),
         0x16 => Some((Instruction::ASL, AddressMode::ZeroPageIndexedWithX)),
 
-        0x0F => Some((Instruction::BBR { n: 0 }, AddressMode::ProgramCounterRelative)),
-        0x1F => Some((Instruction::BBR { n: 1 }, AddressMode::ProgramCounterRelative)),
-        0x2F => Some((Instruction::BBR { n: 2 }, AddressMode::ProgramCounterRelative)),
-        0x3F => Some((Instruction::BBR { n: 3 }, AddressMode::ProgramCounterRelative)),
-        0x4F => Some((Instruction::BBR { n: 4 }, AddressMode::ProgramCounterRelative)),
-        0x5F => Some((Instruction::BBR { n: 5 }, AddressMode::ProgramCounterRelative)),
-        0x6F => Some((Instruction::BBR { n: 6 }, AddressMode::ProgramCounterRelative)),
-        0x7F => Some((Instruction::BBR { n: 7 }, AddressMode::ProgramCounterRelative)),
+        0x0F => Some((Instruction::BBR(0), AddressMode::ProgramCounterRelative)),
+        0x1F => Some((Instruction::BBR(1), AddressMode::ProgramCounterRelative)),
+        0x2F => Some((Instruction::BBR(2), AddressMode::ProgramCounterRelative)),
+        0x3F => Some((Instruction::BBR(3), AddressMode::ProgramCounterRelative)),
+        0x4F => Some((Instruction::BBR(4), AddressMode::ProgramCounterRelative)),
+        0x5F => Some((Instruction::BBR(5), AddressMode::ProgramCounterRelative)),
+        0x6F => Some((Instruction::BBR(6), AddressMode::ProgramCounterRelative)),
+        0x7F => Some((Instruction::BBR(7), AddressMode::ProgramCounterRelative)),
 
-        0x8F => Some((Instruction::BBS { n: 0 }, AddressMode::ProgramCounterRelative)),
-        0x9F => Some((Instruction::BBS { n: 1 }, AddressMode::ProgramCounterRelative)),
-        0xAF => Some((Instruction::BBS { n: 2 }, AddressMode::ProgramCounterRelative)),
-        0xBF => Some((Instruction::BBS { n: 3 }, AddressMode::ProgramCounterRelative)),
-        0xCF => Some((Instruction::BBS { n: 4 }, AddressMode::ProgramCounterRelative)),
-        0xDF => Some((Instruction::BBS { n: 5 }, AddressMode::ProgramCounterRelative)),
-        0xEF => Some((Instruction::BBS { n: 6 }, AddressMode::ProgramCounterRelative)),
-        0xFF => Some((Instruction::BBS { n: 7 }, AddressMode::ProgramCounterRelative)),
+        0x8F => Some((Instruction::BBS(0), AddressMode::ProgramCounterRelative)),
+        0x9F => Some((Instruction::BBS(1), AddressMode::ProgramCounterRelative)),
+        0xAF => Some((Instruction::BBS(2), AddressMode::ProgramCounterRelative)),
+        0xBF => Some((Instruction::BBS(3), AddressMode::ProgramCounterRelative)),
+        0xCF => Some((Instruction::BBS(4), AddressMode::ProgramCounterRelative)),
+        0xDF => Some((Instruction::BBS(5), AddressMode::ProgramCounterRelative)),
+        0xEF => Some((Instruction::BBS(6), AddressMode::ProgramCounterRelative)),
+        0xFF => Some((Instruction::BBS(7), AddressMode::ProgramCounterRelative)),
 
         0x90 => Some((Instruction::BCC, AddressMode::ProgramCounterRelative)),
         0xB0 => Some((Instruction::BCS, AddressMode::ProgramCounterRelative)),
@@ -278,14 +277,14 @@ fn decode(val : u8) -> Option<Opcode> {
         0xFA => Some((Instruction::PLX, AddressMode::Stack)),
         0x7A => Some((Instruction::PLY, AddressMode::Stack)),
 
-        0x07 => Some((Instruction::RMB { n: 0 }, AddressMode::ZeroPage)),
-        0x17 => Some((Instruction::RMB { n: 1 }, AddressMode::ZeroPage)),
-        0x27 => Some((Instruction::RMB { n: 2 }, AddressMode::ZeroPage)),
-        0x37 => Some((Instruction::RMB { n: 3 }, AddressMode::ZeroPage)),
-        0x47 => Some((Instruction::RMB { n: 4 }, AddressMode::ZeroPage)),
-        0x57 => Some((Instruction::RMB { n: 5 }, AddressMode::ZeroPage)),
-        0x67 => Some((Instruction::RMB { n: 6 }, AddressMode::ZeroPage)),
-        0x77 => Some((Instruction::RMB { n: 7 }, AddressMode::ZeroPage)),
+        0x07 => Some((Instruction::RMB(0), AddressMode::ZeroPage)),
+        0x17 => Some((Instruction::RMB(1), AddressMode::ZeroPage)),
+        0x27 => Some((Instruction::RMB(2), AddressMode::ZeroPage)),
+        0x37 => Some((Instruction::RMB(3), AddressMode::ZeroPage)),
+        0x47 => Some((Instruction::RMB(4), AddressMode::ZeroPage)),
+        0x57 => Some((Instruction::RMB(5), AddressMode::ZeroPage)),
+        0x67 => Some((Instruction::RMB(6), AddressMode::ZeroPage)),
+        0x77 => Some((Instruction::RMB(7), AddressMode::ZeroPage)),
 
         0x2E => Some((Instruction::ROL, AddressMode::Absolute)),
         0x3E => Some((Instruction::ROL, AddressMode::AbsoluteIndexedWithX)),
@@ -316,14 +315,14 @@ fn decode(val : u8) -> Option<Opcode> {
         0xF8 => Some((Instruction::SED, AddressMode::Implied)),
         0x78 => Some((Instruction::SEI, AddressMode::Implied)),
 
-        0x87 => Some((Instruction::SMB { n: 0 }, AddressMode::ZeroPage)),
-        0x97 => Some((Instruction::SMB { n: 1 }, AddressMode::ZeroPage)),
-        0xA7 => Some((Instruction::SMB { n: 2 }, AddressMode::ZeroPage)),
-        0xB7 => Some((Instruction::SMB { n: 3 }, AddressMode::ZeroPage)),
-        0xC7 => Some((Instruction::SMB { n: 4 }, AddressMode::ZeroPage)),
-        0xD7 => Some((Instruction::SMB { n: 5 }, AddressMode::ZeroPage)),
-        0xE7 => Some((Instruction::SMB { n: 6 }, AddressMode::ZeroPage)),
-        0xF7 => Some((Instruction::SMB { n: 7 }, AddressMode::ZeroPage)),
+        0x87 => Some((Instruction::SMB(0), AddressMode::ZeroPage)),
+        0x97 => Some((Instruction::SMB(1), AddressMode::ZeroPage)),
+        0xA7 => Some((Instruction::SMB(2), AddressMode::ZeroPage)),
+        0xB7 => Some((Instruction::SMB(3), AddressMode::ZeroPage)),
+        0xC7 => Some((Instruction::SMB(4), AddressMode::ZeroPage)),
+        0xD7 => Some((Instruction::SMB(5), AddressMode::ZeroPage)),
+        0xE7 => Some((Instruction::SMB(6), AddressMode::ZeroPage)),
+        0xF7 => Some((Instruction::SMB(7), AddressMode::ZeroPage)),
 
         0x8D => Some((Instruction::STA, AddressMode::Absolute)),
         0x9D => Some((Instruction::STA, AddressMode::AbsoluteIndexedWithX)),
@@ -370,6 +369,7 @@ fn decode(val : u8) -> Option<Opcode> {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum CPUFlag {
     Carry    = 0x01,
     Zero     = 0x02,
@@ -381,19 +381,28 @@ pub enum CPUFlag {
     Negative = 0x80,
 }
 
+pub trait Attachment {
+    // clock cycle
+    fn step(&mut self);
+
+    // data & address bus
+    fn read(&self, addr : u16) -> u8;
+    fn write(&mut self, addr : u16, data : u8);
+}
+
 pub struct W65C02S {
-    pub bus    : Bus,      // the address & memory bus
-    pub state  : CPUState, // cpu state
-    pub ir     : Opcode,   // instruction register
-    pub tcu    : u8,       // timing control unit
-    pub a      : u8,       // accumulator register
-    pub x      : u8,       // index register 'x'
-    pub y      : u8,       // index register 'y'
-    pub p      : u8,       // processor status register
-    pub pc     : u16,      // program counter register
-    pub s      : u8,       // stack pointer register
-    pub temp8  : u8,      // temporary storage
-    pub temp16 : u16,      // temporary storage
+    pub attachments : Vec<(u16, u16, Box<dyn Attachment>)>,
+    pub state       : CPUState, // cpu state
+    pub ir          : Opcode,   // instruction register
+    pub tcu         : u8,       // timing control unit
+    pub a           : u8,       // accumulator register
+    pub x           : u8,       // index register 'x'
+    pub y           : u8,       // index register 'y'
+    pub p           : u8,       // processor status register
+    pub pc          : u16,      // program counter register
+    pub s           : u8,       // stack pointer register
+    pub temp8       : u8,      // temporary storage
+    pub temp16      : u16,      // temporary storage
 }
 
 impl fmt::Debug for W65C02S {
@@ -417,23 +426,19 @@ impl fmt::Debug for W65C02S {
 impl W65C02S {
     pub fn new() -> W65C02S {
         W65C02S {
-            bus:    Bus::new(),
-            state:  CPUState::Init { cycle: 0 },
-            ir:     (Instruction::NOP, AddressMode::Implied),
-            tcu:    0,
-            a:      0,
-            x:      0,
-            y:      0,
-            p:      0,
-            pc:     0,
-            s:      0,
-            temp8:  0,
-            temp16: 0,
+            attachments: Vec::new(),
+            state:       CPUState::Init(0),
+            ir:          (Instruction::NOP, AddressMode::Implied),
+            tcu:         0,
+            a:           0,
+            x:           0,
+            y:           0,
+            p:           0,
+            pc:          0,
+            s:           0,
+            temp8:       0,
+            temp16:      0,
         }
-    }
-
-    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn BusMember>) {
-        self.bus.attach(addr_mask, addr_val, member);
     }
 
     pub fn is_halted(&self) -> bool {
@@ -443,22 +448,59 @@ impl W65C02S {
         }
     }
 
+    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn Attachment>) {
+        self.attachments.push((addr_mask, addr_val, member));
+    }
+
+    fn read(&self, addr : u16) -> u8 {
+        debug!("R @ {:04x}", addr);
+
+        let mut selected_members = self.attachments.iter().filter(move |&(mask, val, _)| { (addr & mask) == *val });
+        match selected_members.next() {
+            None => { panic!("no bus member responded to addr: {:04x}", addr); }
+            Some((mask, _, member)) => {
+                match selected_members.next() {
+                    None => {
+                        let data = member.read(addr & !mask);
+                        data
+                    }
+                    _    => { panic!("multiple bus members responded to addr: {:04x}", addr); }
+                }
+            }
+        }
+    }
+
+    fn write(&mut self, addr : u16, data : u8) {
+        debug!("W @ {:04x} = {:02x}", addr, data);
+
+        let mut selected_members = self.attachments.iter_mut().filter(|(mask, val, _)| { (addr & mask) == *val });
+        match selected_members.next() {
+            None => { panic!("no bus member responded to addr: {:04x}", addr); }
+            Some((mask, _, member)) => {
+                match selected_members.next() {
+                    None => { member.write(addr & !*mask, data) }
+                    _    => { panic!("multiple bus members responded to addr: {:04x}", addr); }
+                }
+            }
+        }
+    }
+
     fn push(&mut self, val : u8) {
-        self.bus.write(0x0100 + (self.s as u16), val);
+        self.write(0x0100 + (self.s as u16), val);
         self.s = self.s.wrapping_sub(1);
     }
 
     fn pop(&mut self) -> u8 {
         self.s = self.s.wrapping_add(1);
-        self.bus.read(0x0100 + (self.s as u16))
+        self.read(0x0100 + (self.s as u16))
     }
 
     fn peek(&mut self) -> u8 {
-        self.bus.read(0x0100 + (self.s as u16))
+        self.read(0x0100 + (self.s as u16))
     }
 
     fn fetch(&mut self) -> u8 {
-        let val = self.bus.read(self.pc);
+        let val = self.read(self.pc);
         self.pc += 1;
         val
     }
@@ -497,19 +539,20 @@ impl W65C02S {
 
     pub fn step(&mut self) {
         debug!("CPU: {:x?}", self);
+
         match self.state {
-            CPUState::Init { cycle: c } => {
+            CPUState::Init(c) => {
                 match c {
                     5 => {
-                        self.pc = self.bus.read(0xFFFC) as u16;
-                        self.state = CPUState::Init { cycle: c+1 }
+                        self.pc = self.read(0xFFFC) as u16;
+                        self.state = CPUState::Init(c+1)
                     }
                     6 => {
-                        self.pc = self.pc | ((self.bus.read(0xFFFD) as u16) << 8);
+                        self.pc = self.pc | ((self.read(0xFFFD) as u16) << 8);
                         self.state = CPUState::Run;
                     }
                     _ => {
-                        self.state = CPUState::Init { cycle: c+1 }
+                        self.state = CPUState::Init(c+1)
                     }
                 }
             }
@@ -541,8 +584,8 @@ impl W65C02S {
 
                     // AND a
                     ((Instruction::AND, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.bus.read(self.temp16);
-                        self.a &= self.bus.read(self.temp16);
+                        self.temp8 = self.read(self.temp16);
+                        self.a &= self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -559,7 +602,7 @@ impl W65C02S {
 
                     // ASL a
                     ((Instruction::ASL, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.bus.read(self.temp16);
+                        self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
                     ((Instruction::ASL, AddressMode::Absolute), 4) => {
@@ -570,7 +613,7 @@ impl W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::ASL, AddressMode::Absolute), 5) => {
-                        self.bus.write(self.temp16, self.temp8);
+                        self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
@@ -686,8 +729,8 @@ impl W65C02S {
 
                     // EOR a
                     ((Instruction::EOR, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.bus.read(self.temp16);
-                        self.a ^= self.bus.read(self.temp16);
+                        self.temp8 = self.read(self.temp16);
+                        self.a ^= self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -695,7 +738,7 @@ impl W65C02S {
 
                     // INC a
                     ((Instruction::INC, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.bus.read(self.temp16);
+                        self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
                     ((Instruction::INC, AddressMode::Absolute), 4) => {
@@ -705,7 +748,7 @@ impl W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::INC, AddressMode::Absolute), 5) => {
-                        self.bus.write(self.temp16, self.temp8);
+                        self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
@@ -764,7 +807,7 @@ impl W65C02S {
 
                     // LDA a
                     ((Instruction::LDA, AddressMode::Absolute), 3) => {
-                        self.a = self.bus.read(self.temp16);
+                        self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -772,7 +815,7 @@ impl W65C02S {
 
                     // LDA (zp),y
                     ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
-                        self.a = self.bus.read(self.temp16 + (self.y as u16));
+                        self.a = self.read(self.temp16 + (self.y as u16));
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -788,7 +831,7 @@ impl W65C02S {
 
                     // LDX a
                     ((Instruction::LDX, AddressMode::Absolute), 3) => {
-                        self.x = self.bus.read(self.temp16);
+                        self.x = self.read(self.temp16);
                         self.update_zero_flag(self.x);
                         self.update_negative_flag(self.x);
                         self.tcu = 0;
@@ -796,7 +839,7 @@ impl W65C02S {
 
                     // LDX a,y
                     ((Instruction::LDX, AddressMode::AbsoluteIndexedWithY), 3) => {
-                        self.x = self.bus.read(self.temp16);
+                        self.x = self.read(self.temp16);
                         self.update_zero_flag(self.x);
                         self.update_negative_flag(self.x);
                         self.tcu = 0;
@@ -812,7 +855,7 @@ impl W65C02S {
 
                     // LDY a
                     ((Instruction::LDY, AddressMode::Absolute), 3) => {
-                        self.y = self.bus.read(self.temp16);
+                        self.y = self.read(self.temp16);
                         self.update_zero_flag(self.y);
                         self.update_negative_flag(self.y);
                         self.tcu = 0;
@@ -854,37 +897,37 @@ impl W65C02S {
 
                     // STA zp
                     ((Instruction::STA, AddressMode::ZeroPage), 2) => {
-                        self.bus.write(self.temp16, self.a);
+                        self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
                     // STA a
                     ((Instruction::STA, AddressMode::Absolute), 3) => {
-                        self.bus.write(self.temp16, self.a);
+                        self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
                     // STA a,y
                     ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4) => {
-                        self.bus.write(self.temp16, self.a);
+                        self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
                     // STX a
                     ((Instruction::STX, AddressMode::Absolute), 3) => {
-                        self.bus.write(self.temp16, self.x);
+                        self.write(self.temp16, self.x);
                         self.tcu = 0;
                     }
 
                     // STY a
                     ((Instruction::STY, AddressMode::Absolute), 3) => {
-                        self.bus.write(self.temp16, self.y);
+                        self.write(self.temp16, self.y);
                         self.tcu = 0;
                     }
 
                     // STZ a
                     ((Instruction::STZ, AddressMode::Absolute), 3) => {
-                        self.bus.write(self.temp16, 0);
+                        self.write(self.temp16, 0);
                         self.tcu = 0;
                     }
 
@@ -955,11 +998,11 @@ impl W65C02S {
                         self.tcu += 1;
                     }
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 2) => {
-                        self.temp16 = self.bus.read(self.temp8 as u16) as u16;
+                        self.temp16 = self.read(self.temp8 as u16) as u16;
                         self.tcu += 1;
                     }
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 3) => {
-                        self.temp16 = (self.bus.read((self.temp8 + 1) as u16) as u16) << 8;
+                        self.temp16 = (self.read((self.temp8 + 1) as u16) as u16) << 8;
                         self.tcu += 1;
                     }
 
@@ -972,5 +1015,7 @@ impl W65C02S {
             CPUState::Halt => {
             }
         }
+
+        self.attachments.iter_mut().for_each(|(_, _, m)| { m.step(); });
     }
 }

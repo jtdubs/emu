@@ -1,6 +1,6 @@
 use log::debug;
-use std::fs;
-use crate::bus::BusMember;
+
+use crate::cpu;
 
 pub struct RAM {
     mem : Vec<u8>
@@ -12,14 +12,12 @@ impl RAM {
         storage.resize(size, 0u8);
         RAM { mem: storage }
     }
-
-    pub fn map(&mut self, base_addr : u16, path : &str) {
-        debug!("MAP @ {:04x} = {}", base_addr, path);
-        fs::read(path).unwrap().iter().enumerate().for_each(move |(ix, &val)| { self.mem[(base_addr as usize) + ix] = val })
-    }
 }
 
-impl BusMember for RAM {
+impl cpu::Attachment for RAM {
+    fn step(&mut self) {
+    }
+
     fn read(&self, addr : u16) -> u8 {
         let data = self.mem[addr as usize];
         debug!("R @ {:04x} = {:02x}", addr, data);

@@ -1,4 +1,8 @@
-- Implement more opcodes
-- W65C22 implementation
-- HD44780 implementation
+- W65C02S
+    - More opcodes
+- W65C22
+    - Need timer and interrupts for this to work correctly
+- HD44780
+    - Needs 9 pins.  Address is the Register selector (Data/Instruction), data is a byte.
+    - Use some adapter that listens to both ports of the W65C22 and dispatches to display and/or future controller
 - Timing?
