@@ -1,21 +1,33 @@
-mod cpu;
-mod ram;
-mod rom;
-mod periph;
-mod display;
+use std::rc::Rc;
+use std::sync::Mutex;
+
+mod components;
+
+use components::*;
 
 fn main() {
     env_logger::init();
 
-    let mut periph = periph::W65C22::new();
-    periph.attach_b(Box::new(display::HD44780U::new()));
+    let mut clk = Clock::new();
+    let cpu = Rc::new(Mutex::new(W65C02S::new()));
+    let ram = Rc::new(Mutex::new(RAM::new(0x4000)));
+    let rom = Rc::new(Mutex::new(ROM::load("rom.bin")));
+    let per = Rc::new(Mutex::new(W65C22::new()));
+    let dsp = Rc::new(Mutex::new(HD44780U::new()));
 
-    let mut cpu = cpu::W65C02S::new();
-    cpu.attach(0xC000, 0x0000, Box::new(ram::RAM::new(0x4000)));
-    cpu.attach(0x8000, 0x8000, Box::new(rom::ROM::load("rom.bin")));
-    cpu.attach(0xFFF0, 0x6000, Box::new(periph));
+    clk.attach(cpu.clone());
+    clk.attach(per.clone());
+    clk.attach(dsp.clone());
 
-    while !cpu.is_halted() {
-        cpu.step();
+    let mut c = cpu.lock().unwrap();
+    c.attach(0xC000, 0x0000, ram);
+    c.attach(0x8000, 0x8000, rom);
+    c.attach(0xFFF0, 0x6000, per.clone());
+
+    let mut p = per.lock().unwrap();
+    p.attach_b(dsp);
+
+    while !cpu.lock().unwrap().is_halted() {
+        clk.step();
     }
 }

@@ -1,31 +1,35 @@
-use std::fmt;
 use log::debug;
+use std::fmt;
+use std::rc::Rc;
+use std::sync::Mutex;
+
+use crate::components::clock;
 
 #[derive(Debug)]
 pub enum CPUState {
     Init(u8),
     Run,
-    Halt
+    Halt,
 }
 
 #[derive(Debug)]
 pub enum AddressMode {
-    Absolute,                       // a
-    AbsoluteIndexedIndirect,        // (a,x)
-    AbsoluteIndexedWithX,           // a,x
-    AbsoluteIndexedWithY,           // a,y
-    AbsoluteIndirect,               // (a)
-    Accumulator,                    // A
-    ImmediateAddressing,            // #
-    Implied,                        // i
-    ProgramCounterRelative,         // r
-    Stack,                          // s
-    ZeroPage,                       // zp
-    ZeroPageIndexedIndirect,        // (zp,x)
-    ZeroPageIndexedWithX,           // zp,x
-    ZeroPageIndexedWithY,           // zp,y
-    ZeroPageIndirect,               // (zp)
-    ZeroPageIndirectIndexedWithY    // (zp),y
+    Absolute,                     // a
+    AbsoluteIndexedIndirect,      // (a,x)
+    AbsoluteIndexedWithX,         // a,x
+    AbsoluteIndexedWithY,         // a,y
+    AbsoluteIndirect,             // (a)
+    Accumulator,                  // A
+    ImmediateAddressing,          // #
+    Implied,                      // i
+    ProgramCounterRelative,       // r
+    Stack,                        // s
+    ZeroPage,                     // zp
+    ZeroPageIndexedIndirect,      // (zp,x)
+    ZeroPageIndexedWithX,         // zp,x
+    ZeroPageIndexedWithY,         // zp,y
+    ZeroPageIndirect,             // (zp)
+    ZeroPageIndirectIndexedWithY, // (zp),y
 }
 
 #[derive(Debug)]
@@ -99,12 +103,12 @@ pub enum Instruction {
     TXA,
     TXS,
     TYA,
-    WAI
+    WAI,
 }
 
 pub type Opcode = (Instruction, AddressMode);
 
-fn decode(val : u8) -> Option<Opcode> {
+fn decode(val: u8) -> Option<Opcode> {
     match val {
         0x6D => Some((Instruction::ADC, AddressMode::Absolute)),
         0x7D => Some((Instruction::ADC, AddressMode::AbsoluteIndexedWithX)),
@@ -159,7 +163,6 @@ fn decode(val : u8) -> Option<Opcode> {
         0x89 => Some((Instruction::BIT, AddressMode::ImmediateAddressing)),
         0x24 => Some((Instruction::BIT, AddressMode::ZeroPage)),
         0x34 => Some((Instruction::BIT, AddressMode::ZeroPageIndexedWithX)),
-
 
         0x30 => Some((Instruction::BMI, AddressMode::ProgramCounterRelative)),
         0xD0 => Some((Instruction::BNE, AddressMode::ProgramCounterRelative)),
@@ -364,62 +367,58 @@ fn decode(val : u8) -> Option<Opcode> {
 
         0xCB => Some((Instruction::WAI, AddressMode::Implied)),
 
-        _ => None
+        _ => None,
     }
 }
 
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum CPUFlag {
-    Carry    = 0x01,
-    Zero     = 0x02,
-    IRQB     = 0x04,
-    Decimal  = 0x08,
-    BRK      = 0x10,
-    User     = 0x20,
+    Carry = 0x01,
+    Zero = 0x02,
+    IRQB = 0x04,
+    Decimal = 0x08,
+    BRK = 0x10,
+    User = 0x20,
     Overflow = 0x40,
     Negative = 0x80,
 }
 
 pub trait Attachment {
-    // clock cycle
-    fn step(&mut self);
-
-    // data & address bus
-    fn read(&self, addr : u16) -> u8;
-    fn write(&mut self, addr : u16, data : u8);
+    fn read(&self, addr: u16) -> u8;
+    fn write(&mut self, addr: u16, data: u8);
 }
 
 pub struct W65C02S {
-    pub attachments : Vec<(u16, u16, Box<dyn Attachment>)>,
-    pub state       : CPUState, // cpu state
-    pub ir          : Opcode,   // instruction register
-    pub tcu         : u8,       // timing control unit
-    pub a           : u8,       // accumulator register
-    pub x           : u8,       // index register 'x'
-    pub y           : u8,       // index register 'y'
-    pub p           : u8,       // processor status register
-    pub pc          : u16,      // program counter register
-    pub s           : u8,       // stack pointer register
-    pub temp8       : u8,      // temporary storage
-    pub temp16      : u16,      // temporary storage
+    pub attachments: Vec<(u16, u16, Rc<Mutex<dyn Attachment>>)>,
+    pub state: CPUState, // cpu state
+    pub ir: Opcode,      // instruction register
+    pub tcu: u8,         // timing control unit
+    pub a: u8,           // accumulator register
+    pub x: u8,           // index register 'x'
+    pub y: u8,           // index register 'y'
+    pub p: u8,           // processor status register
+    pub pc: u16,         // program counter register
+    pub s: u8,           // stack pointer register
+    pub temp8: u8,       // temporary storage
+    pub temp16: u16,     // temporary storage
 }
 
 impl fmt::Debug for W65C02S {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("W65C02S")
-         .field("state", &self.state)
-         .field("ir", &self.ir)
-         .field("tcu", &self.tcu)
-         .field("a", &self.a)
-         .field("x", &self.x)
-         .field("y", &self.y)
-         .field("p", &self.p)
-         .field("pc", &self.pc)
-         .field("s", &self.s)
-         .field("temp8", &self.temp8)
-         .field("temp16", &self.temp16)
-         .finish()
+            .field("state", &self.state)
+            .field("ir", &self.ir)
+            .field("tcu", &self.tcu)
+            .field("a", &self.a)
+            .field("x", &self.x)
+            .field("y", &self.y)
+            .field("p", &self.p)
+            .field("pc", &self.pc)
+            .field("s", &self.s)
+            .field("temp8", &self.temp8)
+            .field("temp16", &self.temp16)
+            .finish()
     }
 }
 
@@ -427,65 +426,75 @@ impl W65C02S {
     pub fn new() -> W65C02S {
         W65C02S {
             attachments: Vec::new(),
-            state:       CPUState::Init(0),
-            ir:          (Instruction::NOP, AddressMode::Implied),
-            tcu:         0,
-            a:           0,
-            x:           0,
-            y:           0,
-            p:           0,
-            pc:          0,
-            s:           0,
-            temp8:       0,
-            temp16:      0,
+            state: CPUState::Init(0),
+            ir: (Instruction::NOP, AddressMode::Implied),
+            tcu: 0,
+            a: 0,
+            x: 0,
+            y: 0,
+            p: 0,
+            pc: 0,
+            s: 0,
+            temp8: 0,
+            temp16: 0,
         }
     }
 
     pub fn is_halted(&self) -> bool {
         match self.state {
             CPUState::Halt => true,
-            _ => false
+            _ => false,
         }
     }
 
-    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Box<dyn Attachment>) {
+    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Rc<Mutex<dyn Attachment>>) {
         self.attachments.push((addr_mask, addr_val, member));
     }
 
-    fn read(&self, addr : u16) -> u8 {
+    fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
 
-        let mut selected_members = self.attachments.iter().filter(move |&(mask, val, _)| { (addr & mask) == *val });
+        let mut selected_members = self
+            .attachments
+            .iter()
+            .filter(move |&(mask, val, _)| (addr & mask) == *val);
         match selected_members.next() {
-            None => { panic!("no bus member responded to addr: {:04x}", addr); }
-            Some((mask, _, member)) => {
-                match selected_members.next() {
-                    None => {
-                        let data = member.read(addr & !mask);
-                        data
-                    }
-                    _    => { panic!("multiple bus members responded to addr: {:04x}", addr); }
-                }
+            None => {
+                panic!("no bus member responded to addr: {:04x}", addr);
             }
+            Some((mask, _, member)) => match selected_members.next() {
+                None => {
+                    let data = member.lock().unwrap().read(addr & !mask);
+                    data
+                }
+                _ => {
+                    panic!("multiple bus members responded to addr: {:04x}", addr);
+                }
+            },
         }
     }
 
-    fn write(&mut self, addr : u16, data : u8) {
+    fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
 
-        let mut selected_members = self.attachments.iter_mut().filter(|(mask, val, _)| { (addr & mask) == *val });
+        let mut selected_members = self
+            .attachments
+            .iter_mut()
+            .filter(|(mask, val, _)| (addr & mask) == *val);
         match selected_members.next() {
-            None => { panic!("no bus member responded to addr: {:04x}", addr); }
-            Some((mask, _, member)) => {
-                match selected_members.next() {
-                    None => { member.write(addr & !*mask, data) }
-                    _    => { panic!("multiple bus members responded to addr: {:04x}", addr); }
-                }
+            None => {
+                panic!("no bus member responded to addr: {:04x}", addr);
             }
+            Some((mask, _, member)) => match selected_members.next() {
+                None => member.lock().unwrap().write(addr & !*mask, data),
+                _ => {
+                    panic!("multiple bus members responded to addr: {:04x}", addr);
+                }
+            },
         }
     }
 
-    fn push(&mut self, val : u8) {
+    fn push(&mut self, val: u8) {
         self.write(0x0100 + (self.s as u16), val);
         self.s = self.s.wrapping_sub(1);
     }
@@ -505,7 +514,7 @@ impl W65C02S {
         val
     }
 
-    fn update_zero_flag(&mut self, val : u8) {
+    fn update_zero_flag(&mut self, val: u8) {
         if val == 0 {
             self.p |= CPUFlag::Zero as u8;
         } else {
@@ -513,7 +522,7 @@ impl W65C02S {
         }
     }
 
-    fn update_negative_flag(&mut self, val : u8) {
+    fn update_negative_flag(&mut self, val: u8) {
         if val & 0x80 == 0x80 {
             self.p |= CPUFlag::Negative as u8;
         } else {
@@ -521,7 +530,7 @@ impl W65C02S {
         }
     }
 
-    fn update_carry_flag(&mut self, val : bool) {
+    fn update_carry_flag(&mut self, val: bool) {
         if val {
             self.p |= CPUFlag::Carry as u8;
         } else {
@@ -529,33 +538,31 @@ impl W65C02S {
         }
     }
 
-    fn update_irqb_flag(&mut self, val : bool) {
+    fn update_irqb_flag(&mut self, val: bool) {
         if val {
             self.p |= CPUFlag::IRQB as u8;
         } else {
             self.p &= !(CPUFlag::IRQB as u8);
         }
     }
+}
 
-    pub fn step(&mut self) {
+impl clock::Attachment for W65C02S {
+    fn step(&mut self) {
         debug!("CPU: {:x?}", self);
 
         match self.state {
-            CPUState::Init(c) => {
-                match c {
-                    5 => {
-                        self.pc = self.read(0xFFFC) as u16;
-                        self.state = CPUState::Init(c+1)
-                    }
-                    6 => {
-                        self.pc = self.pc | ((self.read(0xFFFD) as u16) << 8);
-                        self.state = CPUState::Run;
-                    }
-                    _ => {
-                        self.state = CPUState::Init(c+1)
-                    }
+            CPUState::Init(c) => match c {
+                5 => {
+                    self.pc = self.read(0xFFFC) as u16;
+                    self.state = CPUState::Init(c + 1)
                 }
-            }
+                6 => {
+                    self.pc = self.pc | ((self.read(0xFFFD) as u16) << 8);
+                    self.state = CPUState::Run;
+                }
+                _ => self.state = CPUState::Init(c + 1),
+            },
             CPUState::Run => {
                 match (&self.ir, &self.tcu) {
                     // First step is always to fetch the next instruction
@@ -1012,10 +1019,7 @@ impl W65C02S {
                     }
                 }
             }
-            CPUState::Halt => {
-            }
+            CPUState::Halt => {}
         }
-
-        self.attachments.iter_mut().for_each(|(_, _, m)| { m.step(); });
     }
 }
