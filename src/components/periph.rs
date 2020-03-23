@@ -77,7 +77,7 @@ impl W65C22 {
 }
 
 impl clock::Attachment for W65C22 {
-    fn step(&mut self) {}
+    fn cycle(&mut self) {}
 }
 
 impl cpu::Attachment for W65C22 {

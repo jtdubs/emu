@@ -48,7 +48,7 @@ impl HD44780U {
 }
 
 impl clock::Attachment for HD44780U {
-    fn step(&mut self) {
+    fn cycle(&mut self) {
         debug!("DSP: {:x?}", self);
 
         self.state = match self.state {

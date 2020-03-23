@@ -548,7 +548,7 @@ impl W65C02S {
 }
 
 impl clock::Attachment for W65C02S {
-    fn step(&mut self) {
+    fn cycle(&mut self) {
         debug!("CPU: {:x?}", self);
 
         match self.state {

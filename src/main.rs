@@ -19,15 +19,19 @@ fn main() {
     clk.attach(per.clone());
     clk.attach(dsp.clone());
 
-    let mut c = cpu.lock().unwrap();
-    c.attach(0xC000, 0x0000, ram);
-    c.attach(0x8000, 0x8000, rom);
-    c.attach(0xFFF0, 0x6000, per.clone());
+    {
+        let mut c = cpu.lock().unwrap();
+        c.attach(0xC000, 0x0000, ram);
+        c.attach(0x8000, 0x8000, rom);
+        c.attach(0xFFF0, 0x6000, per.clone());
+    }
 
-    let mut p = per.lock().unwrap();
-    p.attach_b(dsp);
+    {
+        let mut p = per.lock().unwrap();
+        p.attach_b(dsp);
+    }
 
     while !cpu.lock().unwrap().is_halted() {
-        clk.step();
+        clk.cycle();
     }
 }

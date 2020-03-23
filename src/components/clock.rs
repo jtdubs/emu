@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 
 pub trait Attachment {
-    fn step(&mut self);
+    fn cycle(&mut self);
 }
 
 pub struct Clock {
@@ -28,10 +28,10 @@ impl Clock {
         self.attachments.push(attachment);
     }
 
-    pub fn step(&mut self) {
-        debug!("CLK STEP");
+    pub fn cycle(&mut self) {
+        debug!("CYCLE");
         self.attachments
             .iter_mut()
-            .for_each(|a| a.lock().unwrap().step());
+            .for_each(|a| a.lock().unwrap().cycle());
     }
 }
