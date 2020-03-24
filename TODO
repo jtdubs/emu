@@ -3,7 +3,5 @@
 - W65C22
     - Need timer and interrupts for this to work correctly
 - HD44780U
-    - Just basic busy functionality would be nice to start with
-- HD44780UAdapter
-    - Get this working to mediate reads/writes from the peripheral controller
+    - need to handle setaddr command for line 2 to work
 - Timing

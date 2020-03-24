@@ -1,7 +1,7 @@
+use log::{debug,info};
 use std::fmt;
-use std::sync::Mutex;
 use std::rc::Rc;
-use log::debug;
+use std::sync::Mutex;
 
 use crate::components::clock;
 use crate::components::periph;
@@ -21,7 +21,7 @@ pub enum RegisterSelector {
 pub struct HD44780U {
     state: State,
     addr: u8,
-    buffer: Vec<u8>
+    buffer: Vec<u8>,
 }
 
 impl fmt::Debug for HD44780U {
@@ -44,7 +44,7 @@ impl HD44780U {
             // state: State::Busy(15000),
             state: State::Busy(150),
             addr: 0,
-            buffer: buffer
+            buffer: buffer,
         }
     }
 
@@ -68,7 +68,22 @@ impl HD44780U {
 
     pub fn write(&mut self, addr: RegisterSelector, val: u8) {
         debug!("W {:?} = {:02x}", addr, val);
-        unimplemented!();
+        match addr {
+            RegisterSelector::Instruction => {
+                self.state = State::Busy(37);
+            }
+            RegisterSelector::Data => {
+                self.buffer[self.addr as usize] = val;
+                self.addr += 1;
+                self.addr %= 80;
+                self.state = State::Busy(37);
+
+
+                info!("----------------------------------------");
+                info!("{}", &String::from_utf8_lossy(&self.buffer[..40]));
+                info!("{}", &String::from_utf8_lossy(&self.buffer[40..]));
+            }
+        }
     }
 }
 
@@ -84,24 +99,23 @@ impl clock::Attachment for HD44780U {
     }
 }
 
-
 #[derive(Debug)]
 pub struct HD44780UAdapter {
-    a_cache : u8,
-    b_cache : u8,
-    dsp : Option<Rc<Mutex<HD44780U>>>,
+    a_cache: u8,
+    b_cache: u8,
+    dsp: Option<Rc<Mutex<HD44780U>>>,
 }
 
-const RS : u8 = 0x20;
-const RW : u8 = 0x40;
-const E : u8 = 0x80;
+const RS: u8 = 0x20;
+const RW: u8 = 0x40;
+const E: u8 = 0x80;
 
 impl HD44780UAdapter {
     pub fn new() -> HD44780UAdapter {
         HD44780UAdapter {
             a_cache: 0,
             b_cache: 0,
-            dsp: None
+            dsp: None,
         }
     }
 
@@ -111,30 +125,32 @@ impl HD44780UAdapter {
 }
 
 fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
-    (if a & RS == RS { RegisterSelector::Data } else { RegisterSelector::Instruction },
+    (
+        if a & RS == RS {
+            RegisterSelector::Data
+        } else {
+            RegisterSelector::Instruction
+        },
         a & RW == RW,
-        a & E == E)
+        a & E == E,
+    )
 }
 
 impl periph::Attachment for HD44780UAdapter {
-    fn read(&self, p : periph::Port) -> u8 {
+    fn read(&self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
         if let Some(dsp) = &self.dsp {
             match p {
-                periph::Port::A => {
-                    0u8
-                }
-                periph::Port::B => {
-                    dsp.lock().unwrap().read(get_control(self.a_cache).0)
-                }
+                periph::Port::A => 0u8,
+                periph::Port::B => dsp.lock().unwrap().read(get_control(self.a_cache).0),
             }
         } else {
             0u8
         }
     }
 
-    fn write(&mut self, p : periph::Port, val: u8) {
+    fn write(&mut self, p: periph::Port, val: u8) {
         debug!("W {:?} = {:02x}", p, val);
 
         if let Some(dsp) = &self.dsp {
@@ -144,7 +160,7 @@ impl periph::Attachment for HD44780UAdapter {
                         (true, false) => {
                             dsp.lock().unwrap().write(get_control(val).0, self.b_cache);
                         }
-                        _ => { }
+                        _ => {}
                     }
                     self.a_cache = val;
                 }

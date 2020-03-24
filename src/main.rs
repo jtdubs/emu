@@ -35,7 +35,7 @@ fn main() {
 
     {
         let mut a = ada.lock().unwrap();
-        a.attach(dsp);
+        a.attach(dsp.clone());
     }
 
     while !cpu.lock().unwrap().is_halted() {

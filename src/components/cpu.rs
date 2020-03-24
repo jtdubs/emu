@@ -702,8 +702,8 @@ impl clock::Attachment for W65C02S {
                     // DEC A
                     ((Instruction::DEC, AddressMode::Accumulator), 1) => {
                         self.a = self.a.wrapping_sub(1);
-                        self.update_zero_flag(self.x);
-                        self.update_negative_flag(self.x);
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
 
@@ -998,7 +998,7 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 3) => {
-                        self.temp16 = (self.read((self.temp8 + 1) as u16) as u16) << 8;
+                        self.temp16 |= (self.read((self.temp8 + 1) as u16) as u16) << 8;
                         self.tcu += 1;
                     }
 
