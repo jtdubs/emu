@@ -21,7 +21,8 @@ pub enum RegisterSelector {
 pub struct HD44780U {
     state: State,
     addr: u8,
-    buffer: Vec<u8>,
+    line1: Vec<u8>,
+    line2: Vec<u8>,
 }
 
 impl fmt::Debug for HD44780U {
@@ -29,22 +30,26 @@ impl fmt::Debug for HD44780U {
         f.debug_struct("HD44780U")
             .field("state", &self.state)
             .field("addr", &self.addr)
-            .field("line1", &String::from_utf8_lossy(&self.buffer[..40]))
-            .field("line2", &String::from_utf8_lossy(&self.buffer[40..]))
+            .field("line1", &String::from_utf8_lossy(&self.line1))
+            .field("line2", &String::from_utf8_lossy(&self.line2))
             .finish()
     }
 }
 
 impl HD44780U {
     pub fn new() -> HD44780U {
-        let mut buffer = Vec::new();
-        buffer.resize(80, ' ' as u8);
+        let mut line1 = Vec::new();
+        line1.resize(40, ' ' as u8);
+
+        let mut line2 = Vec::new();
+        line2.resize(40, ' ' as u8);
 
         HD44780U {
             // state: State::Busy(15000),
             state: State::Busy(150),
             addr: 0,
-            buffer: buffer,
+            line1: line1,
+            line2: line2
         }
     }
 
@@ -59,7 +64,13 @@ impl HD44780U {
                 result
             }
             RegisterSelector::Data => {
-                let result = self.buffer[self.addr as usize];
+                let offset = (self.addr & 0x3F) as usize;
+                let result =
+                    if self.addr & 0x40 == 0x00 {
+                        self.line1[offset]
+                    } else {
+                        self.line2[offset]
+                    };
                 debug!("R {:?} = {:02x}", addr, result);
                 result
             }
@@ -90,20 +101,37 @@ impl HD44780U {
                 } else if val & 0x01 == 0x01 {
                     // clear display
                     self.addr = 0;
-                    self.buffer.iter_mut().for_each(|x| *x = ' ' as u8);
+                    self.line1.iter_mut().for_each(|x| *x = ' ' as u8);
+                    self.line2.iter_mut().for_each(|x| *x = ' ' as u8);
                 }
                 self.state = State::Busy(37);
             }
             RegisterSelector::Data => {
-                self.buffer[self.addr as usize] = val;
+                let offset = (self.addr & 0x3F) as usize;
+
+                if self.addr & 0x40 == 0x00 {
+                    self.line1[offset] = val;
+                } else {
+                    self.line2[offset] = val;
+                };
+
                 self.addr += 1;
-                self.addr %= 80;
+                if self.addr & 0x40 == 0x00 {
+                    if self.addr > 40 {
+                        self.addr = 0x40;
+                    }
+                } else {
+                    if self.addr > (0x40 + 40) {
+                        self.addr = 0x00;
+                    }
+                }
+
                 self.state = State::Busy(37);
 
 
-                info!("----------------------------------------");
-                info!("{}", &String::from_utf8_lossy(&self.buffer[..40]));
-                info!("{}", &String::from_utf8_lossy(&self.buffer[40..]));
+                info!("----------------");
+                info!("{}", &String::from_utf8_lossy(&self.line1[..16]));
+                info!("{}", &String::from_utf8_lossy(&self.line2[..16]));
             }
         }
     }
