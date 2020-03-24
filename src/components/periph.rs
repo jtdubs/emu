@@ -72,8 +72,23 @@ impl W65C22 {
     pub fn attach_b(&mut self, device: Rc<Mutex<dyn Attachment>>) {
         self.port_b = Some(device);
     }
+
+    fn set_interrupt(&mut self, i: Interrupts) {
+        debug!("Set interrupt: {:?}", i);
+        self.ifr |= i as u8;
+        self.ifr |= 0x80;
+    }
+
+    fn clear_interrupt(&mut self, i: Interrupts) {
+        debug!("Clear interrupt: {:?}", i);
+        self.ifr &= !(i as u8);
+        if self.ifr == 0x80 {
+            self.ifr = 0;
+        }
+    }
 }
 
+#[derive(Debug)]
 enum Interrupts {
     T1 = 0x40
 }
@@ -83,8 +98,7 @@ impl clock::Attachment for W65C22 {
         if self.t1c > 0 {
             self.t1c -= 1;
         } else {
-            info!("T1 Fire");
-            self.ifr |= Interrupts::T1 as u8;
+            self.set_interrupt(Interrupts::T1);
             match self.acr >> 6 {
                 0 => {
                     // single-shot mode
@@ -126,13 +140,14 @@ impl cpu::Attachment for W65C22 {
             0x2 => self.ddrb,
             0x3 => self.ddra,
             0x4 => {
-                self.ifr &= !(Interrupts::T1 as u8);
+                self.clear_interrupt(Interrupts::T1);
                 (self.t1c & 0x00ff) as u8
             }
             0x5 => {
                 (self.t1c >> 8) as u8
             }
             0x6 => {
+                self.clear_interrupt(Interrupts::T1);
                 (self.t1l & 0x00ff) as u8
             }
             0x7 => {
@@ -153,12 +168,8 @@ impl cpu::Attachment for W65C22 {
             0xC => {
                 unimplemented!("W65C22 - Read PCR");
             }
-            0xD => {
-                unimplemented!("W65C22 - Read IFR");
-            }
-            0xE => {
-                unimplemented!("W65C22 - Read IER");
-            }
+            0xD => self.ifr,
+            0xE => self.ier,
             0xF => {
                 if let Some(a) = &self.port_a {
                     (self.ora & self.ddra) | (a.lock().unwrap().read(Port::A) & !self.ddra)
@@ -196,14 +207,14 @@ impl cpu::Attachment for W65C22 {
             0x5 => {
                 self.t1l = (self.t1l & 0x00ff) | ((data as u16) << 8);
                 self.t1c = self.t1l;
-                self.ifr &= !(Interrupts::T1 as u8);
+                self.clear_interrupt(Interrupts::T1);
             }
             0x6 => {
                 self.t1l = (self.t1l & 0xff00) | (data as u16);
             }
             0x7 => {
                 self.t1l = (self.t1l & 0x00ff) | ((data as u16) << 8);
-                self.ifr &= !(Interrupts::T1 as u8);
+                self.clear_interrupt(Interrupts::T1);
             }
             0x8 => {
                 unimplemented!("W65C22 - Write T2C_H");
@@ -221,7 +232,7 @@ impl cpu::Attachment for W65C22 {
                 unimplemented!("W65C22 - Write PCR");
             }
             0xD => {
-                unimplemented!("W65C22 - Write IFR");
+                self.ifr &= !data;
             }
             0xE => {
                 self.ier = data;
@@ -234,5 +245,9 @@ impl cpu::Attachment for W65C22 {
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
+    }
+
+    fn has_interrupt(&self) -> bool {
+        self.ifr & self.ier != 0
     }
 }

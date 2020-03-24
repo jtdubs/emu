@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug,info};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -387,6 +387,8 @@ pub enum CPUFlag {
 pub trait Attachment {
     fn read(&mut self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, data: u8);
+
+    fn has_interrupt(&self) -> bool;
 }
 
 pub struct W65C02S {
@@ -557,16 +559,23 @@ impl clock::Attachment for W65C02S {
                 match (&self.ir, &self.tcu) {
                     // First step is always to fetch the next instruction
                     (_, 0) => {
-                        let val = self.fetch();
-                        match decode(val) {
-                            Some(opcode) => {
-                                debug!("DECODE: {:x?}", opcode);
-                                self.ir = opcode;
-                                self.tcu += 1;
-                            }
-                            None => {
-                                debug!("FAILED DECODE: {:x?}", val);
-                                self.state = CPUState::Halt;
+                        if (self.p & (CPUFlag::IRQB as u8) == 0) && self.attachments.iter().any(|(_, _, a)| { a.lock().unwrap().has_interrupt() }) {
+                            debug!("Interrupt!");
+                            self.ir = (Instruction::BRK, AddressMode::Implied);
+                            self.tcu += 1;
+                        } else {
+                            let val = self.fetch();
+                            match decode(val) {
+                                Some(opcode) => {
+                                    debug!("DECODE: {:x?}", opcode);
+                                    // info!("CPU: {:?}", self);
+                                    self.ir = opcode;
+                                    self.tcu += 1;
+                                }
+                                None => {
+                                    debug!("FAILED DECODE: {:x?}", val);
+                                    self.state = CPUState::Halt;
+                                }
                             }
                         }
                     }
@@ -611,6 +620,33 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ASL, AddressMode::Absolute), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
+                    }
+
+                    // ASL zp
+                    ((Instruction::ASL, AddressMode::ZeroPage), 2) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::ZeroPage), 3) => {
+                        self.update_carry_flag(self.temp8 & 0x80 == 0x80);
+                        self.temp8 <<= 1;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ASL, AddressMode::ZeroPage), 4) => {
+                        self.write(self.temp16, self.temp8);
+                        self.tcu = 0;
+                    }
+
+                    // BCC r
+                    ((Instruction::BCC, AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp8 = self.fetch();
+                        if self.p & (CPUFlag::Carry as u8) == 0 {
+                            self.tcu += 1;
+                        } else {
+                            self.tcu = 0;
+                        }
                     }
 
                     // BCS r
@@ -661,6 +697,39 @@ impl clock::Attachment for W65C02S {
                         } else {
                             self.tcu = 0;
                         }
+                    }
+
+                    // BRK i
+                    ((Instruction::BRK, AddressMode::Implied), 1) => {
+                        self.tcu += 1;
+                    }
+                    // BRK s
+                    ((Instruction::BRK, AddressMode::Stack), 1) => {
+                        self.p |= CPUFlag::BRK as u8;
+                        self.fetch();
+                        self.tcu += 1;
+                    }
+                    // BRK i/s
+                    ((Instruction::BRK, _), 2) => {
+                        self.push((self.pc >> 8) as u8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BRK, _), 3) => {
+                        self.push((self.pc & 0xff) as u8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BRK, _), 4) => {
+                        self.push(self.p);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BRK, _), 5) => {
+                        self.p |= CPUFlag::IRQB as u8;
+                        self.pc = self.read(0xFFFE) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BRK, _), 6) => {
+                        self.pc = self.pc | ((self.read(0xFFFF) as u16) << 8);
+                        self.tcu = 0;
                     }
 
                     // CLI i
@@ -862,6 +931,68 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // PHA s
+                    ((Instruction::PHA, AddressMode::Stack), 1) => {
+                        self.push(self.a);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PHA, AddressMode::Stack), 2) => {
+                        self.tcu = 0;
+                    }
+
+                    // PHP s
+                    ((Instruction::PHP, AddressMode::Stack), 1) => {
+                        self.push(self.p);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PHP, AddressMode::Stack), 2) => {
+                        self.tcu = 0;
+                    }
+
+                    // PLA s
+                    ((Instruction::PLA, AddressMode::Stack), 1) => {
+                        self.a = self.pop();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLA, AddressMode::Stack), 2) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLA, AddressMode::Stack), 3) => {
+                        self.tcu = 0;
+                    }
+
+                    // PLP s
+                    ((Instruction::PLP, AddressMode::Stack), 1) => {
+                        self.p = self.pop();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLP, AddressMode::Stack), 2) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLP, AddressMode::Stack), 3) => {
+                        self.tcu = 0;
+                    }
+
+                    // RTI s
+                    ((Instruction::RTI, AddressMode::Stack), 1) => {
+                        self.p = self.pop();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::RTI, AddressMode::Stack), 2) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::RTI, AddressMode::Stack), 3) => {
+                        self.pc = self.pop() as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::RTI, AddressMode::Stack), 4) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::RTI, AddressMode::Stack), 5) => {
+                        self.pc |= (self.pop() as u16) << 8;
+                        self.tcu = 0;
+                    }
+
                     // RTS s
                     ((Instruction::RTS, AddressMode::Stack), 1) => {
                         self.fetch();
@@ -1005,6 +1136,7 @@ impl clock::Attachment for W65C02S {
                     // Unimplemented
                     _ => {
                         self.state = CPUState::Halt;
+                        info!("CPU: {:x?}", self);
                         unimplemented!("Unimplemented opcode: {:?}, {:?}", self.ir, self.tcu);
                     }
                 }

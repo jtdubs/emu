@@ -1,8 +1,6 @@
 - W65C02S
-    - Interrupts
     - More opcodes
 - W65C22
-    - Interrupts
     - Need Vec of masked attachments to port so we can have controller & display share Port A
 - Controller
 - Timing
