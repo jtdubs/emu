@@ -80,7 +80,9 @@ impl W65C22 {
 }
 
 impl clock::Attachment for W65C22 {
-    fn cycle(&mut self) {}
+    fn cycle(&mut self) {
+        // if REG_ACR == 0x40, decrement the timer value...
+    }
 }
 
 impl cpu::Attachment for W65C22 {
@@ -98,17 +100,50 @@ impl cpu::Attachment for W65C22 {
             }
             0x2 => self.ddrb,
             0x3 => self.ddra,
-            0x4 => self.t1c_l,
-            0x5 => self.t1c_h,
-            0x6 => self.t1l_l,
-            0x7 => self.t1l_h,
-            0x8 => self.t2c_l,
-            0x9 => self.t2c_h,
-            0xA => self.sr,
-            0xB => self.acr,
-            0xC => self.pcr,
-            0xD => self.ifr,
-            0xE => self.ier,
+            0x4 => {
+                unimplemented!("W65C22 - Read T1C_L");
+                self.t1c_l
+            }
+            0x5 => {
+                unimplemented!("W65C22 - Read T1C_H");
+                self.t1c_h
+            }
+            0x6 => {
+                unimplemented!("W65C22 - Read T1L_L");
+                self.t1l_l
+            }
+            0x7 => {
+                unimplemented!("W65C22 - Read T1L_H");
+                self.t1l_h
+            }
+            0x8 => {
+                unimplemented!("W65C22 - Read T2C_L");
+                self.t2c_l
+            }
+            0x9 => {
+                unimplemented!("W65C22 - Read T2C_H");
+                self.t2c_h
+            }
+            0xA => {
+                unimplemented!("W65C22 - Read SR");
+                self.sr
+            }
+            0xB => {
+                unimplemented!("W65C22 - Read ACR");
+                self.acr
+            }
+            0xC => {
+                unimplemented!("W65C22 - Read PCR");
+                self.pcr
+            }
+            0xD => {
+                unimplemented!("W65C22 - Read IFR");
+                self.ifr
+            }
+            0xE => {
+                unimplemented!("W65C22 - Read IER");
+                self.ier
+            }
             0xF => {
                 if let Some(a) = &self.port_a {
                     (self.ora & self.ddra) | (a.lock().unwrap().read(Port::A) & !self.ddra)
@@ -132,7 +167,7 @@ impl cpu::Attachment for W65C22 {
                 }
             }
             0x1 => {
-                unimplemented!();
+                unimplemented!("W65C22 - Access to ORA w/ handshake");
             }
             0x2 => {
                 self.ddrb = data;
@@ -148,27 +183,34 @@ impl cpu::Attachment for W65C22 {
             }
             0x6 => {
                 self.t1l_l = data;
+                unimplemented!("W65C22 - Write T1L_H");
             }
             0x7 => {
                 self.t1l_h = data;
+                unimplemented!("W65C22 - Write T1L_H");
             }
             0x8 => {
                 self.t2c_l = data;
+                unimplemented!("W65C22 - Write T2C_H");
             }
             0x9 => {
                 self.t2c_h = data;
+                unimplemented!("W65C22 - Write T2C_H");
             }
             0xA => {
                 self.sr = data;
+                unimplemented!("W65C22 - Write SR");
             }
             0xB => {
                 self.acr = data;
             }
             0xC => {
                 self.pcr = data;
+                unimplemented!("W65C22 - Write PCR");
             }
             0xD => {
                 self.ifr = data;
+                unimplemented!("W65C22 - Write IFR");
             }
             0xE => {
                 self.ier = data;

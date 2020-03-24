@@ -1005,6 +1005,7 @@ impl clock::Attachment for W65C02S {
                     // Unimplemented
                     _ => {
                         self.state = CPUState::Halt;
+                        unimplemented!("Unimplemented opcode: {:?}, {:?}", self.ir, self.tcu);
                     }
                 }
             }

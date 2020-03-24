@@ -86,7 +86,6 @@ impl HD44780U {
                     self.addr = (val & 0x7f) % 80;
                 } else if val & 0x40 == 0x40 {
                     // set cgram addr
-                    unimplemented!("unimplemented display function: {:02x}", val);
                 } else if val & 0x20 == 0x20 {
                     // function set
                 } else if val & 0x10 == 0x10 {
@@ -97,7 +96,6 @@ impl HD44780U {
                     // entry mode set
                 } else if val & 0x02 == 0x02 {
                     // return home
-                    unimplemented!("unimplemented display function: {:02x}", val);
                 } else if val & 0x01 == 0x01 {
                     // clear display
                     self.addr = 0;

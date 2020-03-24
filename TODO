@@ -2,6 +2,6 @@
     - More opcodes
 - W65C22
     - Need timer and interrupts for this to work correctly
-- HD44780U
-    - need to handle setaddr command for line 2 to work
+    - Need Vec of masked attachments to port so we can have controller & display share Port A
+- Controller
 - Timing
