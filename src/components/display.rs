@@ -53,7 +53,7 @@ impl HD44780U {
         }
     }
 
-    pub fn read(&self, addr: RegisterSelector) -> u8 {
+    pub fn read(&mut self, addr: RegisterSelector) -> u8 {
         match addr {
             RegisterSelector::Instruction => {
                 let mut result = self.addr;
@@ -185,7 +185,7 @@ fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
 }
 
 impl periph::Attachment for HD44780UAdapter {
-    fn read(&self, p: periph::Port) -> u8 {
+    fn read(&mut self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
         if let Some(dsp) = &self.dsp {

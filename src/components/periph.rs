@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug,info};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -10,10 +10,11 @@ use crate::components::cpu;
 pub enum Port { A, B }
 
 pub trait Attachment {
-    fn read(&self, p : Port) -> u8;
+    fn read(&mut self, p : Port) -> u8;
     fn write(&mut self, p : Port, val : u8);
 }
 
+#[allow(dead_code)]
 pub struct W65C22 {
     port_a: Option<Rc<Mutex<dyn Attachment>>>,
     port_b: Option<Rc<Mutex<dyn Attachment>>>,
@@ -21,12 +22,9 @@ pub struct W65C22 {
     ora: u8,
     ddrb: u8,
     ddra: u8,
-    t1c_l: u8,
-    t1c_h: u8,
-    t1l_l: u8,
-    t1l_h: u8,
-    t2c_l: u8,
-    t2c_h: u8,
+    t1c: u16,
+    t1l: u16,
+    t2c: u16,
     sr: u8,
     acr: u8,
     pcr: u8,
@@ -54,12 +52,9 @@ impl W65C22 {
             ora: 0,
             ddrb: 0,
             ddra: 0,
-            t1c_l: 0,
-            t1c_h: 0,
-            t1l_l: 0,
-            t1l_h: 0,
-            t2c_l: 0,
-            t2c_h: 0,
+            t1c: 0,
+            t1l: 0,
+            t2c: 0,
             sr: 0,
             acr: 0,
             pcr: 0,
@@ -79,14 +74,44 @@ impl W65C22 {
     }
 }
 
+enum Interrupts {
+    T1 = 0x40
+}
+
 impl clock::Attachment for W65C22 {
     fn cycle(&mut self) {
-        // if REG_ACR == 0x40, decrement the timer value...
+        if self.t1c > 0 {
+            self.t1c -= 1;
+        } else {
+            info!("T1 Fire");
+            self.ifr |= Interrupts::T1 as u8;
+            match self.acr >> 6 {
+                0 => {
+                    // single-shot mode
+                    // nothing to do
+                }
+                1 => {
+                    // free-run mode
+                    // reset timer to latched value
+                    self.t1c = self.t1l;
+                }
+                2 => {
+                    unimplemented!("timer1 - one shot pb7 mode");
+                }
+                3 => {
+                    unimplemented!("timer1 - square wave mode");
+                }
+                _ => {
+                    panic!("impossible value for self.acr");
+                }
+            }
+            // TODO: if T1 is set in IER, raise the interrupt
+        }
     }
 }
 
 impl cpu::Attachment for W65C22 {
-    fn read(&self, addr: u16) -> u8 {
+    fn read(&mut self, addr: u16) -> u8 {
         let data = match addr {
             0x0 => {
                 if let Some(b) = &self.port_b {
@@ -101,48 +126,38 @@ impl cpu::Attachment for W65C22 {
             0x2 => self.ddrb,
             0x3 => self.ddra,
             0x4 => {
-                unimplemented!("W65C22 - Read T1C_L");
-                self.t1c_l
+                self.ifr &= !(Interrupts::T1 as u8);
+                (self.t1c & 0x00ff) as u8
             }
             0x5 => {
-                unimplemented!("W65C22 - Read T1C_H");
-                self.t1c_h
+                (self.t1c >> 8) as u8
             }
             0x6 => {
-                unimplemented!("W65C22 - Read T1L_L");
-                self.t1l_l
+                (self.t1l & 0x00ff) as u8
             }
             0x7 => {
-                unimplemented!("W65C22 - Read T1L_H");
-                self.t1l_h
+                (self.t1l >> 8) as u8
             }
             0x8 => {
                 unimplemented!("W65C22 - Read T2C_L");
-                self.t2c_l
             }
             0x9 => {
                 unimplemented!("W65C22 - Read T2C_H");
-                self.t2c_h
             }
             0xA => {
                 unimplemented!("W65C22 - Read SR");
-                self.sr
             }
             0xB => {
                 unimplemented!("W65C22 - Read ACR");
-                self.acr
             }
             0xC => {
                 unimplemented!("W65C22 - Read PCR");
-                self.pcr
             }
             0xD => {
                 unimplemented!("W65C22 - Read IFR");
-                self.ifr
             }
             0xE => {
                 unimplemented!("W65C22 - Read IER");
-                self.ier
             }
             0xF => {
                 if let Some(a) = &self.port_a {
@@ -176,40 +191,36 @@ impl cpu::Attachment for W65C22 {
                 self.ddra = data;
             }
             0x4 => {
-                self.t1c_l = data;
+                self.t1l = (self.t1l & 0xff00) | (data as u16);
             }
             0x5 => {
-                self.t1c_h = data;
+                self.t1l = (self.t1l & 0x00ff) | ((data as u16) << 8);
+                self.t1c = self.t1l;
+                self.ifr &= !(Interrupts::T1 as u8);
             }
             0x6 => {
-                self.t1l_l = data;
-                unimplemented!("W65C22 - Write T1L_H");
+                self.t1l = (self.t1l & 0xff00) | (data as u16);
             }
             0x7 => {
-                self.t1l_h = data;
-                unimplemented!("W65C22 - Write T1L_H");
+                self.t1l = (self.t1l & 0x00ff) | ((data as u16) << 8);
+                self.ifr &= !(Interrupts::T1 as u8);
             }
             0x8 => {
-                self.t2c_l = data;
                 unimplemented!("W65C22 - Write T2C_H");
             }
             0x9 => {
-                self.t2c_h = data;
                 unimplemented!("W65C22 - Write T2C_H");
             }
             0xA => {
-                self.sr = data;
                 unimplemented!("W65C22 - Write SR");
             }
             0xB => {
                 self.acr = data;
             }
             0xC => {
-                self.pcr = data;
                 unimplemented!("W65C22 - Write PCR");
             }
             0xD => {
-                self.ifr = data;
                 unimplemented!("W65C22 - Write IFR");
             }
             0xE => {
