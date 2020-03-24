@@ -596,6 +596,19 @@ impl clock::Attachment for W65C02S {
                         }
                     }
 
+                    // ADC #
+                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) => {
+                        let op1 = self.a as u16;
+                        let op2 = self.fetch() as u16;
+                        let sum = op1 + op2 + ((self.p & (CPUFlag::Carry as u8)) as u16);
+                        self.a = sum as u8;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.update_carry_flag(sum > 0xff);
+                        self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
+                        self.tcu = 0;
+                    }
+
                     // AND #
                     ((Instruction::AND, AddressMode::ImmediateAddressing), 1) => {
                         self.a &= self.fetch();
@@ -810,6 +823,22 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // DEC a
+                    ((Instruction::DEC, AddressMode::Absolute), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::DEC, AddressMode::Absolute), 4) => {
+                        self.temp8 -= 1;
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::DEC, AddressMode::Absolute), 5) => {
+                        self.write(self.temp16, self.temp8);
+                        self.tcu = 0;
+                    }
+
                     // DEX i
                     ((Instruction::DEX, AddressMode::Implied), 1) => {
                         self.x = self.x.wrapping_sub(1);
@@ -823,6 +852,14 @@ impl clock::Attachment for W65C02S {
                         self.y = self.y.wrapping_sub(1);
                         self.update_zero_flag(self.y);
                         self.update_negative_flag(self.y);
+                        self.tcu = 0;
+                    }
+
+                    // EOR #
+                    ((Instruction::EOR, AddressMode::ImmediateAddressing), 1) => {
+                        self.a ^= self.fetch();
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
 
@@ -1007,6 +1044,24 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // PHX s
+                    ((Instruction::PHX, AddressMode::Stack), 1) => {
+                        self.push(self.x);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PHX, AddressMode::Stack), 2) => {
+                        self.tcu = 0;
+                    }
+
+                    // PHY s
+                    ((Instruction::PHY, AddressMode::Stack), 1) => {
+                        self.push(self.y);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PHY, AddressMode::Stack), 2) => {
+                        self.tcu = 0;
+                    }
+
                     // PLA s
                     ((Instruction::PLA, AddressMode::Stack), 1) => {
                         self.a = self.pop();
@@ -1028,6 +1083,46 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::PLP, AddressMode::Stack), 3) => {
+                        self.tcu = 0;
+                    }
+
+                    // PLX s
+                    ((Instruction::PLX, AddressMode::Stack), 1) => {
+                        self.x = self.pop();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLX, AddressMode::Stack), 2) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLX, AddressMode::Stack), 3) => {
+                        self.tcu = 0;
+                    }
+
+                    // PLY s
+                    ((Instruction::PLY, AddressMode::Stack), 1) => {
+                        self.y = self.pop();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLY, AddressMode::Stack), 2) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::PLY, AddressMode::Stack), 3) => {
+                        self.tcu = 0;
+                    }
+
+                    // ROL a
+                    ((Instruction::ROL, AddressMode::Absolute), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROL, AddressMode::Absolute), 4) => {
+                        let c = self.p & (CPUFlag::Carry as u8);
+                        self.update_carry_flag(self.temp8 & 0x80 == 0x80);
+                        self.temp8 = (self.temp8 << 1) | c;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROL, AddressMode::Absolute), 5) => {
+                        self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
@@ -1071,6 +1166,19 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::RTS, AddressMode::Stack), 5) => {
                         self.pc = self.temp16;
                         self.fetch();
+                        self.tcu = 0;
+                    }
+
+                    // SBC #
+                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) => {
+                        let op1 = self.a as u16;
+                        let op2 = self.fetch() as u16;
+                        let diff = op1 - op2 - (1 - ((self.p & (CPUFlag::Carry as u8)) as u16));
+                        self.a = diff as u8;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        // TODO self.update_carry_flag(sum > 0xff);
+                        // TODO self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
                         self.tcu = 0;
                     }
 

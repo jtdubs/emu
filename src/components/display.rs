@@ -108,9 +108,9 @@ impl HD44780U {
                 let offset = (self.addr & 0x3F) as usize;
 
                 if self.addr & 0x40 == 0x00 {
-                    self.line1[offset] = val;
+                    self.line1[offset] = val & 0x7f;
                 } else {
-                    self.line2[offset] = val;
+                    self.line2[offset] = val & 0x7f;
                 };
 
                 self.addr += 1;
@@ -126,10 +126,12 @@ impl HD44780U {
 
                 self.state = State::Busy(37);
 
-
-                info!("----------------");
-                info!("{}", &String::from_utf8_lossy(&self.line1[..16]));
-                info!("{}", &String::from_utf8_lossy(&self.line2[..16]));
+                if self.addr == 80 {
+                    info!("----------------");
+                    info!("{}", &String::from_utf8_lossy(&self.line1[..16]));
+                    info!("{}", &String::from_utf8_lossy(&self.line2[..16]));
+                    info!("----------------");
+                }
             }
         }
     }
