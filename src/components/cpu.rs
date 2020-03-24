@@ -522,6 +522,22 @@ impl W65C02S {
         }
     }
 
+    fn update_decimal_flag(&mut self, val: bool) {
+        if val {
+            self.p |= CPUFlag::Decimal as u8;
+        } else {
+            self.p &= !(CPUFlag::Decimal as u8);
+        }
+    }
+
+    fn update_overflow_flag(&mut self, val: bool) {
+        if val {
+            self.p |= CPUFlag::Overflow as u8;
+        } else {
+            self.p &= !(CPUFlag::Overflow as u8);
+        }
+    }
+
     fn update_carry_flag(&mut self, val: bool) {
         if val {
             self.p |= CPUFlag::Carry as u8;
@@ -732,9 +748,27 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // CLC i
+                    ((Instruction::CLC, AddressMode::Implied), 1) => {
+                        self.update_carry_flag(false);
+                        self.tcu = 0;
+                    }
+
+                    // CLD i
+                    ((Instruction::CLD, AddressMode::Implied), 1) => {
+                        self.update_decimal_flag(false);
+                        self.tcu = 0;
+                    }
+
                     // CLI i
                     ((Instruction::CLI, AddressMode::Implied), 1) => {
                         self.update_irqb_flag(false);
+                        self.tcu = 0;
+                    }
+
+                    // CLV i
+                    ((Instruction::CLV, AddressMode::Implied), 1) => {
+                        self.update_overflow_flag(false);
                         self.tcu = 0;
                     }
 
@@ -798,6 +832,14 @@ impl clock::Attachment for W65C02S {
                         self.a ^= self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+
+                    // INC A
+                    ((Instruction::INC, AddressMode::Accumulator), 1) => {
+                        self.a += 1;
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
                         self.tcu = 0;
                     }
 
@@ -872,6 +914,22 @@ impl clock::Attachment for W65C02S {
 
                     // LDA a
                     ((Instruction::LDA, AddressMode::Absolute), 3) => {
+                        self.a = self.read(self.temp16);
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+
+                    // LDA a,x
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) => {
+                        self.a = self.read(self.temp16);
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+
+                    // LDA a,y
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -1013,6 +1071,18 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::RTS, AddressMode::Stack), 5) => {
                         self.pc = self.temp16;
                         self.fetch();
+                        self.tcu = 0;
+                    }
+
+                    // SEC i
+                    ((Instruction::SEC, AddressMode::Implied), 1) => {
+                        self.update_carry_flag(true);
+                        self.tcu = 0;
+                    }
+
+                    // SED i
+                    ((Instruction::SED, AddressMode::Implied), 1) => {
+                        self.update_decimal_flag(true);
                         self.tcu = 0;
                     }
 
