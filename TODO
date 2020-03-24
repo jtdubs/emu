@@ -1,7 +1,5 @@
 - W65C22
     - Need Vec of masked attachments to port so we can have controller & display share Port A
-- Display
-    - Fix character set (map<u8, u8> ?)
 - Controller
 - Overall
     - Need interface for run, ctrl+c break, dump state incl. memory.  Peek/poke.  Etc.

@@ -2,6 +2,7 @@ use log::{debug,info};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
+use std::iter::FromIterator;
 
 use crate::components::clock;
 use crate::components::periph;
@@ -23,6 +24,7 @@ pub struct HD44780U {
     addr: u8,
     line1: Vec<u8>,
     line2: Vec<u8>,
+    charset: Vec<char>,
 }
 
 impl fmt::Debug for HD44780U {
@@ -44,12 +46,32 @@ impl HD44780U {
         let mut line2 = Vec::new();
         line2.resize(40, ' ' as u8);
 
+        let charset = vec![
+            ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',
+            ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',
+            ' ',  '!',  '"',  '#',  '$',  '%',  '&',  '\'', '(',  ')',  '*',  '+',  ',',  '-',  '.',  '/',
+            '0',  '1',  '2',  '3',  '4',  '5',  '6',  '7',  '8',  '9',  ':',  ';',  '<',  '=',  '>',  '?',
+            '@',  'A',  'B',  'C',  'D',  'E',  'F',  'G',  'H',  'I',  'J',  'K',  'L',  'M',  'N',  'O',
+            'P',  'Q',  'R',  'S',  'T',  'U',  'V',  'W',  'X',  'Y',  'Z',  '[',  '¥',  ']',  '^',  '_',
+            '`',  'a',  'b',  'c',  'd',  'e',  'f',  'g',  'h',  'i',  'j',  'k',  'l',  'm',  'n',  'o',
+            'p',  'q',  'r',  's',  't',  'u',  'v',  'w',  'x',  'y',  'z',  '{',  '|',  '}',  '→',  '←',
+            ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',
+            ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',  ' ',
+            ' ',  '｡',  '｢',  '｣',  '､',  '･',  'ｦ',  'ｧ',  'ｨ',  'ｩ',  'ｪ',  'ｫ',  'ｭ',  'ｪ',  'ｮ',  'ｯ',
+            'ｰ',  'ｱ',  'ｲ',  'ｳ',  'ｴ',  'ｵ',  'ｶ',  'ｷ',  'ｸ',  'ｹ',  'ｺ',  'ｻ',  'ｼ',  'ｽ',  'ｾ',  'ｿ',
+            'ﾀ',  'ﾁ',  'ﾂ',  'ﾃ',  'ﾄ',  'ﾅ',  'ﾆ',  'ﾇ',  'ﾈ',  'ﾉ',  'ﾊ',  'ﾋ',  'ﾌ',  'ﾍ',  'ﾎ',  'ﾏ',
+            'ﾐ',  'ﾑ',  'ﾒ',  'ﾓ',  'ﾔ',  'ﾕ',  'ﾖ',  'ﾗ',  'ﾘ',  'ﾙ',  'ﾚ',  'ﾛ',  'ﾜ',  'ﾝ',  'ﾞ',  'ﾟ',
+            'α',  'ä',  'β',  'ε',  'μ',  'δ',  'ρ',  'g',  '√',  '¹',  'ϳ',  '×',  '¢',  '£',  'ñ',  'ö',
+            'p',  'q',  'θ',  '∞',  'Ω',  'ü',  '∑',  'π',  'x',  'y',  '子',  '万', '円', '÷',  ' ',  '█'
+        ];
+
         HD44780U {
             // state: State::Busy(15000),
             state: State::Busy(150),
             addr: 0,
             line1: line1,
-            line2: line2
+            line2: line2,
+            charset: charset
         }
     }
 
@@ -108,9 +130,9 @@ impl HD44780U {
                 let offset = (self.addr & 0x3F) as usize;
 
                 if self.addr & 0x40 == 0x00 {
-                    self.line1[offset] = val & 0x7f;
+                    self.line1[offset] = val;
                 } else {
-                    self.line2[offset] = val & 0x7f;
+                    self.line2[offset] = val;
                 };
 
                 self.addr += 1;
@@ -128,8 +150,8 @@ impl HD44780U {
 
                 if self.addr == 80 {
                     info!("----------------");
-                    info!("{}", &String::from_utf8_lossy(&self.line1[..16]));
-                    info!("{}", &String::from_utf8_lossy(&self.line2[..16]));
+                    info!("{}", String::from_iter(self.line1.iter().map(|c| { self.charset[*c as usize] })));
+                    info!("{}", String::from_iter(self.line2.iter().map(|c| { self.charset[*c as usize] })));
                     info!("----------------");
                 }
             }
