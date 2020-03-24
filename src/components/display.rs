@@ -70,6 +70,28 @@ impl HD44780U {
         debug!("W {:?} = {:02x}", addr, val);
         match addr {
             RegisterSelector::Instruction => {
+                if val & 0x80 == 0x80 {
+                    // set ddram addr
+                    self.addr = (val & 0x7f) % 80;
+                } else if val & 0x40 == 0x40 {
+                    // set cgram addr
+                    unimplemented!("unimplemented display function: {:02x}", val);
+                } else if val & 0x20 == 0x20 {
+                    // function set
+                } else if val & 0x10 == 0x10 {
+                    // cursor or display shift
+                } else if val & 0x08 == 0x08 {
+                    // display on/off
+                } else if val & 0x04 == 0x04 {
+                    // entry mode set
+                } else if val & 0x02 == 0x02 {
+                    // return home
+                    unimplemented!("unimplemented display function: {:02x}", val);
+                } else if val & 0x01 == 0x01 {
+                    // clear display
+                    self.addr = 0;
+                    self.buffer.iter_mut().for_each(|x| *x = ' ' as u8);
+                }
                 self.state = State::Busy(37);
             }
             RegisterSelector::Data => {
