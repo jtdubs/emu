@@ -11,6 +11,10 @@ fn main() {
     let mut sys = System::new("../6502/rom/bin/rom.bin", "../6502/rom/bin/rom.sym");
     let mut last_command: Option<String> = None;
 
+    sys.run();
+    sys.show_cpu();
+    sys.show_per();
+
     loop {
         print!("emu> ");
         io::stdout().flush().unwrap();
