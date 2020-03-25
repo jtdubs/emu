@@ -20,26 +20,22 @@ pub enum RegisterSelector {
 }
 
 pub struct HD44780U {
-    state: State,
-    addr: u8,
-    line1: Vec<u8>,
-    line2: Vec<u8>,
-    charset: Vec<char>,
+    pub state: State,
+    pub addr: u8,
+    pub line1: Vec<u8>,
+    pub line2: Vec<u8>,
+    pub charset: Vec<char>,
 }
 
 impl fmt::Debug for HD44780U {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (line1, line2) = self.get_output();
+
         f.debug_struct("HD44780U")
             .field("state", &self.state)
             .field("addr", &self.addr)
-            .field(
-                "line1",
-                &String::from_iter(self.line1.iter().map(|c| self.charset[*c as usize])),
-            )
-            .field(
-                "line2",
-                &String::from_iter(self.line2.iter().map(|c| self.charset[*c as usize])),
-            )
+            .field("line1", &line1)
+            .field("line2", &line2)
             .finish()
     }
 }
@@ -154,19 +150,21 @@ impl HD44780U {
                 self.state = State::Busy(37);
 
                 if self.addr == 80 {
+                    let (line1, line2) = self.get_output();
                     info!("----------------");
-                    info!(
-                        "{}",
-                        String::from_iter(self.line1.iter().map(|c| { self.charset[*c as usize] }))
-                    );
-                    info!(
-                        "{}",
-                        String::from_iter(self.line2.iter().map(|c| { self.charset[*c as usize] }))
-                    );
+                    info!("{}", line1);
+                    info!("{}", line2);
                     info!("----------------");
                 }
             }
         }
+    }
+
+    pub fn get_output(&self) -> (String, String) {
+        (
+            String::from_iter(self.line1[..16].iter().map(|c| self.charset[*c as usize])),
+            String::from_iter(self.line2[..16].iter().map(|c| self.charset[*c as usize])),
+        )
     }
 }
 

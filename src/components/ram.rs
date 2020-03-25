@@ -3,7 +3,7 @@ use log::debug;
 use crate::components::cpu;
 
 pub struct RAM {
-    mem: Vec<u8>,
+    pub mem: Vec<u8>,
 }
 
 impl RAM {

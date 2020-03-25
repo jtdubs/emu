@@ -1,6 +1,7 @@
 - CLI
     - Print state better
-    - Only stop at instruction boundaries
+    - Dump RAM
+    - Allow breakpoints?
 - Controller
     - button states and handle shift register logic...
 - W65C02S

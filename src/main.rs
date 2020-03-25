@@ -28,6 +28,7 @@ fn main() {
             "run" => {
                 term.store(false, Ordering::Relaxed);
                 while !term.load(Ordering::Relaxed) {
+                    sys.clk.cycle();
                     while sys.cpu.lock().unwrap().tcu != 1 {
                         sys.clk.cycle();
                     }
@@ -37,16 +38,19 @@ fn main() {
                     }
                 }
                 println!();
-                sys.show();
+                sys.show_cpu();
             }
             "step" => {
                 sys.clk.cycle();
                 while sys.cpu.lock().unwrap().tcu != 1 {
                     sys.clk.cycle();
                 }
-                println!();
-                sys.show();
+                sys.show_cpu();
             }
+            "cpu" => sys.show_cpu(),
+            "zp" => sys.show_zp(),
+            "stack" => sys.show_stack(),
+            "display" => sys.show_dsp(),
             "quit" => {
                 return;
             }
