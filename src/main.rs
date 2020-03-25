@@ -1,53 +1,11 @@
 use std::io::{self, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 mod components;
+mod system;
 
-use components::*;
-
-fn step(sys : &mut System, _sigterm : &Arc<AtomicBool>) {
-    sys.clk.cycle();
-    while sys.cpu.lock().unwrap().tcu != 1 {
-        sys.clk.cycle();
-    }
-}
-
-fn step_over(sys : &mut System, sigterm : &Arc<AtomicBool>) {
-    if sys.cpu.lock().unwrap().ir.0 == components::cpu::Instruction::JSR {
-        let breakpoint = sys.cpu.lock().unwrap().pc + 3;
-        run(sys, sigterm, Some(breakpoint));
-    } else {
-        step(sys, sigterm);
-    }
-}
-
-fn run(sys : &mut System, sigterm : &Arc<AtomicBool>, breakpoint : Option<u16>) {
-    sigterm.store(false, Ordering::Relaxed);
-
-    loop {
-        step(sys, sigterm);
-
-        if sigterm.load(Ordering::Relaxed) {
-            break;
-        }
-
-        if sys.cpu.lock().unwrap().is_halted() {
-            break;
-        }
-
-        if let Some(bp) = breakpoint {
-            if sys.cpu.lock().unwrap().pc == bp {
-                break;
-            }
-        }
-    }
-}
+use system::System;
 
 fn main() {
-    let sigterm = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sigterm)).unwrap();
-
     env_logger::init();
 
     let mut sys = System::new();
@@ -72,18 +30,17 @@ fn main() {
 
         match &*command {
             "run" | "r" => {
-                run(&mut sys, &sigterm, None);
-                println!();
+                sys.run(None);
                 sys.show_cpu();
                 sys.show_per();
             }
             "step" | "s" => {
-                step(&mut sys, &sigterm);
+                sys.step();
                 sys.show_cpu();
                 sys.show_per();
             }
             "over" | "so" | "o" => {
-                step_over(&mut sys, &sigterm);
+                sys.step_over();
                 sys.show_cpu();
                 sys.show_per();
             }

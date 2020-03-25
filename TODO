@@ -1,7 +1,5 @@
 - CLI
     - Allow breakpoints ??  Step out ??
-    - Put all this pretty-print crap, and the stepping logic nto a debugger object
-    - Pull system out of component folder
 - Controller
     - button states and handle shift register logic...
 - W65C02S

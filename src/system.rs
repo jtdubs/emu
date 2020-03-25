@@ -1,5 +1,8 @@
 use std::rc::Rc;
 use std::sync::Mutex;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use signal_hook;
 
 use crate::components::*;
 
@@ -12,6 +15,7 @@ pub struct System {
     pub ada: Rc<Mutex<HD44780UAdapter>>,
     pub dsp: Rc<Mutex<HD44780U>>,
     pub con: Rc<Mutex<SNESController>>,
+    sigterm: Arc<AtomicBool>,
 }
 
 impl System {
@@ -25,7 +29,10 @@ impl System {
             ada: Rc::new(Mutex::new(HD44780UAdapter::new())),
             dsp: Rc::new(Mutex::new(HD44780U::new())),
             con: Rc::new(Mutex::new(SNESController::new())),
+            sigterm: Arc::new(AtomicBool::new(false))
         };
+
+        signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sys.sigterm)).unwrap();
 
         sys.clk.attach(sys.cpu.clone());
         sys.clk.attach(sys.per.clone());
@@ -51,6 +58,45 @@ impl System {
         }
 
         sys
+    }
+
+    pub fn step(&mut self) {
+        self.clk.cycle();
+        while self.cpu.lock().unwrap().tcu != 1 {
+            self.clk.cycle();
+        }
+    }
+
+    pub fn step_over(&mut self) {
+        if self.cpu.lock().unwrap().ir.0 == cpu::Instruction::JSR {
+            let breakpoint = self.cpu.lock().unwrap().pc + 3;
+            self.run(Some(breakpoint));
+        } else {
+            self.step();
+        }
+    }
+
+    pub fn run(&mut self, breakpoint : Option<u16>) {
+        self.sigterm.store(false, Ordering::Relaxed);
+
+        loop {
+            self.step();
+
+            if self.sigterm.load(Ordering::Relaxed) {
+                println!();
+                break;
+            }
+
+            if self.cpu.lock().unwrap().is_halted() {
+                break;
+            }
+
+            if let Some(bp) = breakpoint {
+                if self.cpu.lock().unwrap().pc == bp {
+                    break;
+                }
+            }
+        }
     }
 
     pub fn show_cpu(&self) {
@@ -134,7 +180,7 @@ impl System {
     }
 }
 
-pub fn get_flag_string(flags: u8) -> String {
+fn get_flag_string(flags: u8) -> String {
     let names = ['C', 'Z', 'I', 'D', 'B', '-', 'O', 'N'];
     (0..8)
         .rev()
@@ -142,7 +188,7 @@ pub fn get_flag_string(flags: u8) -> String {
         .collect()
 }
 
-pub fn show_bytes(source: &[u8]) {
+fn show_bytes(source: &[u8]) {
     let mut eliding = false;
 
     let chunks = source.as_ref().chunks(16);
