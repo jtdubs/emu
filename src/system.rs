@@ -16,6 +16,7 @@ pub struct System {
     pub dsp: Rc<Mutex<HD44780U>>,
     pub con: Rc<Mutex<SNESController>>,
     sigterm: Arc<AtomicBool>,
+    pub breakpoints: Vec<u16>
 }
 
 impl System {
@@ -29,7 +30,8 @@ impl System {
             ada: Rc::new(Mutex::new(HD44780UAdapter::new())),
             dsp: Rc::new(Mutex::new(HD44780U::new())),
             con: Rc::new(Mutex::new(SNESController::new())),
-            sigterm: Arc::new(AtomicBool::new(false))
+            sigterm: Arc::new(AtomicBool::new(false)),
+            breakpoints: Vec::new(),
         };
 
         signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sys.sigterm)).unwrap();
@@ -69,14 +71,15 @@ impl System {
 
     pub fn step_over(&mut self) {
         if self.cpu.lock().unwrap().ir.0 == cpu::Instruction::JSR {
-            let breakpoint = self.cpu.lock().unwrap().pc + 3;
-            self.run(Some(breakpoint));
+            self.breakpoints.push(self.cpu.lock().unwrap().pc + 3);
+            self.run();
+            self.breakpoints.pop();
         } else {
             self.step();
         }
     }
 
-    pub fn run(&mut self, breakpoint : Option<u16>) {
+    pub fn run(&mut self) {
         self.sigterm.store(false, Ordering::Relaxed);
 
         loop {
@@ -91,12 +94,30 @@ impl System {
                 break;
             }
 
-            if let Some(bp) = breakpoint {
-                if self.cpu.lock().unwrap().pc == bp {
-                    break;
-                }
+            if self.breakpoints.contains(&self.cpu.lock().unwrap().pc) {
+                break;
             }
         }
+    }
+
+    pub fn list_breakpoints(&self) {
+        self.breakpoints.iter().enumerate().for_each(|(ix, bp)| {
+            println!("{}: {:04x}", ix, bp);
+        });
+    }
+
+    pub fn add_breakpoint(&mut self, addr : u16) {
+        match self.breakpoints.iter().position(|&bp| bp == addr) {
+            Some(ix) => { println!("{}", ix); }
+            None => {
+                self.breakpoints.push(addr);
+                println!("{}", self.breakpoints.len()-1);
+            }
+        }
+    }
+
+    pub fn remove_breakpoint(&mut self, ix : usize) {
+        self.breakpoints.remove(ix);
     }
 
     pub fn show_cpu(&self) {
@@ -117,19 +138,19 @@ impl System {
     pub fn show_zp(&self) {
         let ram = self.ram.lock().unwrap();
         let slice = &ram.mem[0..0x100];
-        show_bytes(slice);
+        show_bytes(slice, 0);
     }
 
     pub fn show_stack(&self) {
         let ram = self.ram.lock().unwrap();
         let slice = &ram.mem[0x100..0x200];
-        show_bytes(slice);
+        show_bytes(slice, 0x100);
     }
 
     pub fn show_ram(&self) {
         let ram = self.ram.lock().unwrap();
         let slice = &ram.mem[0x200..];
-        show_bytes(slice);
+        show_bytes(slice, 0x200);
     }
 
     pub fn show_dsp(&self) {
@@ -188,7 +209,7 @@ fn get_flag_string(flags: u8) -> String {
         .collect()
 }
 
-fn show_bytes(source: &[u8]) {
+fn show_bytes(source: &[u8], offset: usize) {
     let mut eliding = false;
 
     let chunks = source.as_ref().chunks(16);
@@ -204,7 +225,7 @@ fn show_bytes(source: &[u8]) {
             eliding = false;
         }
 
-        print!("{:04x}:   ", i * 16);
+        print!("{:04x}:   ", (i * 16) + offset);
 
         for (i, x) in row.as_ref().iter().enumerate() {
             print!(

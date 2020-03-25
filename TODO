@@ -1,5 +1,6 @@
 - CLI
-    - Allow breakpoints ??  Step out ??
+    - Step out/up / Finish ??
+    - Symbols...
 - Controller
     - button states and handle shift register logic...
 - W65C02S

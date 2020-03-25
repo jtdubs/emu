@@ -28,9 +28,11 @@ fn main() {
             }
         }
 
-        match &*command {
+        let mut words = command.split_ascii_whitespace();
+
+        match words.next().unwrap() {
             "run" | "r" => {
-                sys.run(None);
+                sys.run();
                 sys.show_cpu();
                 sys.show_per();
             }
@@ -47,6 +49,15 @@ fn main() {
             "sys" => {
                 sys.show_cpu();
                 sys.show_per();
+            }
+            "bp" => sys.list_breakpoints(),
+            "break" => {
+                let addr : u16 = words.next().unwrap().parse().unwrap();
+                sys.add_breakpoint(addr);
+            }
+            "del" => {
+                let ix : usize = words.next().unwrap().parse().unwrap();
+                sys.remove_breakpoint(ix);
             }
             "cpu" => sys.show_cpu(),
             "per" => sys.show_per(),
