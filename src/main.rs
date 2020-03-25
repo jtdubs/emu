@@ -9,7 +9,7 @@ fn main() {
     env_logger::init();
 
     let mut sys = System::new();
-    let mut last_command : Option<String> = None;
+    let mut last_command: Option<String> = None;
 
     loop {
         print!("emu> ");
@@ -57,11 +57,11 @@ fn main() {
             }
             "bp" => sys.list_breakpoints(),
             "break" => {
-                let addr : u16 = words.next().unwrap().parse().unwrap();
+                let addr: u16 = words.next().unwrap().parse().unwrap();
                 sys.add_breakpoint(addr);
             }
             "del" => {
-                let ix : usize = words.next().unwrap().parse().unwrap();
+                let ix: usize = words.next().unwrap().parse().unwrap();
                 sys.remove_breakpoint(ix);
             }
             "cpu" => sys.show_cpu(),
@@ -73,7 +73,7 @@ fn main() {
             "quit" | "q" => {
                 return;
             }
-            "" => { }
+            "" => {}
             u => {
                 println!("unknown command: '{}'", u);
             }

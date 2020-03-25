@@ -1,8 +1,8 @@
-use std::rc::Rc;
-use std::sync::Mutex;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use signal_hook;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::components::*;
 
@@ -16,7 +16,7 @@ pub struct System {
     pub dsp: Rc<Mutex<HD44780U>>,
     pub con: Rc<Mutex<SNESController>>,
     sigterm: Arc<AtomicBool>,
-    pub breakpoints: Vec<u16>
+    pub breakpoints: Vec<u16>,
 }
 
 impl System {
@@ -80,15 +80,15 @@ impl System {
     }
 
     pub fn step_out(&mut self) {
-        let mut depth : i32 = 0;
+        let mut depth: i32 = 0;
 
         self.sigterm.store(false, Ordering::Relaxed);
 
         loop {
             match self.cpu.lock().unwrap().ir.0 {
-               cpu::Instruction::JSR => depth += 1,
-               cpu::Instruction::RTS => depth -= 1,
-               _ => {}
+                cpu::Instruction::JSR => depth += 1,
+                cpu::Instruction::RTS => depth -= 1,
+                _ => {}
             }
 
             self.step();
@@ -135,27 +135,25 @@ impl System {
         });
     }
 
-    pub fn add_breakpoint(&mut self, addr : u16) {
+    pub fn add_breakpoint(&mut self, addr: u16) {
         match self.breakpoints.iter().position(|&bp| bp == addr) {
-            Some(ix) => { println!("{}", ix); }
+            Some(ix) => {
+                println!("{}", ix);
+            }
             None => {
                 self.breakpoints.push(addr);
-                println!("{}", self.breakpoints.len()-1);
+                println!("{}", self.breakpoints.len() - 1);
             }
         }
     }
 
-    pub fn remove_breakpoint(&mut self, ix : usize) {
+    pub fn remove_breakpoint(&mut self, ix: usize) {
         self.breakpoints.remove(ix);
     }
 
     pub fn show_cpu(&self) {
         let cpu = self.cpu.lock().unwrap();
-        print!(
-            "<{}> {:04x}: ",
-            get_flag_string(cpu.p),
-            cpu.pc
-        );
+        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc);
         self.show_instruction(&cpu);
         println!();
         println!(
@@ -205,7 +203,7 @@ impl System {
         let (opcode, address_mode) = &cpu.ir;
 
         let arg8 = cpu.peek(cpu.pc);
-        let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc+1) as u16) << 8);
+        let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc + 1) as u16) << 8);
 
         print!("{:?}", opcode);
 
