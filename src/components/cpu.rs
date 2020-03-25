@@ -593,7 +593,6 @@ impl clock::Attachment for W65C02S {
                             match decode(val) {
                                 Some(opcode) => {
                                     debug!("DECODE: {:x?}", opcode);
-                                    // info!("CPU: {:?}", self);
                                     self.ir = opcode;
                                     self.tcu += 1;
                                 }
