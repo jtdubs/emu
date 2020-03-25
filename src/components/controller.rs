@@ -1,12 +1,11 @@
 use crate::components::periph;
 
 #[derive(Debug)]
-pub struct SNESController {
-}
+pub struct SNESController {}
 
 impl SNESController {
     pub fn new() -> SNESController {
-        SNESController { }
+        SNESController {}
     }
 }
 
@@ -16,6 +15,5 @@ impl periph::Attachment for SNESController {
         0x00
     }
 
-    fn write(&mut self, _p: periph::Port, _val: u8) {
-    }
+    fn write(&mut self, _p: periph::Port, _val: u8) {}
 }

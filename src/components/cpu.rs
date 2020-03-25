@@ -1,4 +1,4 @@
-use log::{debug,info};
+use log::{debug, info};
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -453,9 +453,10 @@ impl W65C02S {
         self.attachments.push((addr_mask, addr_val, member));
     }
 
-    fn with_attachment<F, R>(&self, addr: u16, f : F) -> R
-        where F : Fn(u16, &Rc<Mutex<dyn Attachment>>) -> R {
-
+    fn with_attachment<F, R>(&self, addr: u16, f: F) -> R
+    where
+        F: Fn(u16, &Rc<Mutex<dyn Attachment>>) -> R,
+    {
         let mut attachments = self
             .attachments
             .iter()
@@ -466,9 +467,7 @@ impl W65C02S {
                 panic!("no bus member responded to addr: {:04x}", addr);
             }
             Some((mask, _, member)) => match attachments.next() {
-                None => {
-                    f(addr & !mask, member)
-                }
+                None => f(addr & !mask, member),
                 _ => {
                     panic!("multiple bus members responded to addr: {:04x}", addr);
                 }
@@ -478,12 +477,12 @@ impl W65C02S {
 
     fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
-        self.with_attachment(addr, |a, m| { m.lock().unwrap().read(a) })
+        self.with_attachment(addr, |a, m| m.lock().unwrap().read(a))
     }
 
     fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
-        self.with_attachment(addr, |a, m| { m.lock().unwrap().write(a, data) })
+        self.with_attachment(addr, |a, m| m.lock().unwrap().write(a, data))
     }
 
     fn push(&mut self, val: u8) {
@@ -575,7 +574,12 @@ impl clock::Attachment for W65C02S {
                 match (&self.ir, &self.tcu) {
                     // First step is always to fetch the next instruction
                     (_, 0) => {
-                        if (self.p & (CPUFlag::IRQB as u8) == 0) && self.attachments.iter().any(|(_, _, a)| { a.lock().unwrap().has_interrupt() }) {
+                        if (self.p & (CPUFlag::IRQB as u8) == 0)
+                            && self
+                                .attachments
+                                .iter()
+                                .any(|(_, _, a)| a.lock().unwrap().has_interrupt())
+                        {
                             debug!("Interrupt!");
                             self.ir = (Instruction::BRK, AddressMode::Implied);
                             self.tcu += 1;

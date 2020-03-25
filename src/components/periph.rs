@@ -190,7 +190,9 @@ impl cpu::Attachment for W65C22 {
             0x0 => {
                 self.orb = data & self.ddrb;
                 let val = self.orb;
-                self.port_b.iter_mut().for_each(|(mask, device)| { device.lock().unwrap().write(Port::B, val & *mask); });
+                self.port_b.iter_mut().for_each(|(mask, device)| {
+                    device.lock().unwrap().write(Port::B, val & *mask);
+                });
             }
             0x1 => {
                 unimplemented!("W65C22 - Access to ORA w/ handshake");
@@ -240,7 +242,9 @@ impl cpu::Attachment for W65C22 {
             0xF => {
                 self.ora = data & self.ddra;
                 let val = self.ora;
-                self.port_a.iter_mut().for_each(|(mask, device)| { device.lock().unwrap().write(Port::A, val & *mask); });
+                self.port_a.iter_mut().for_each(|(mask, device)| {
+                    device.lock().unwrap().write(Port::A, val & *mask);
+                });
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }

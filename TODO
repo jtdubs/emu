@@ -1,5 +1,6 @@
-- Overall
-    - Need interface for run, ctrl+c break, dump state incl. memory.  Peek/poke.  Etc.
+- CLI
+    - Print state better
+    - Only stop at instruction boundaries
 - Controller
     - button states and handle shift register logic...
 - W65C02S
