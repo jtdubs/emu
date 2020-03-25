@@ -609,7 +609,7 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) => {
                         let op1 = self.a as u16;
                         let op2 = self.fetch() as u16;
-                        let sum = op1 + op2 + ((self.p & (CPUFlag::Carry as u8)) as u16);
+                        let sum = op1.wrapping_add(op2).wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                         self.a = sum as u8;
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -804,7 +804,7 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // CMP #
+                    // CMP a
                     ((Instruction::CMP, AddressMode::Absolute), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.update_carry_flag(self.a >= self.temp8);
@@ -977,7 +977,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // LDA a,x
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -985,7 +985,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // LDA a,y
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 4) => {
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -1192,7 +1192,7 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) => {
                         let op1 = self.a as u16;
                         let op2 = self.fetch() as u16;
-                        let diff = op1 - op2 - (1 - ((self.p & (CPUFlag::Carry as u8)) as u16));
+                        let diff = op1.wrapping_sub(op2).wrapping_sub(1 - ((self.p & (CPUFlag::Carry as u8)) as u16));
                         self.a = diff as u8;
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -1232,13 +1232,13 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // STA a,x
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
                     // STA a,y
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4) => {
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
@@ -1284,9 +1284,6 @@ impl clock::Attachment for W65C02S {
                     }
                     ((_, AddressMode::AbsoluteIndexedWithX), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
-                        self.tcu += 1;
-                    }
-                    ((_, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp16 += self.x as u16;
                         self.tcu += 1;
                     }
@@ -1298,9 +1295,6 @@ impl clock::Attachment for W65C02S {
                     }
                     ((_, AddressMode::AbsoluteIndexedWithY), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
-                        self.tcu += 1;
-                    }
-                    ((_, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.temp16 += self.y as u16;
                         self.tcu += 1;
                     }
