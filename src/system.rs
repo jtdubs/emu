@@ -79,6 +79,35 @@ impl System {
         }
     }
 
+    pub fn step_out(&mut self) {
+        let mut depth : i32 = 0;
+
+        self.sigterm.store(false, Ordering::Relaxed);
+
+        loop {
+            match self.cpu.lock().unwrap().ir.0 {
+               cpu::Instruction::JSR => depth += 1,
+               cpu::Instruction::RTS => depth -= 1,
+               _ => {}
+            }
+
+            self.step();
+
+            if self.sigterm.load(Ordering::Relaxed) {
+                println!();
+                break;
+            }
+
+            if self.cpu.lock().unwrap().is_halted() {
+                break;
+            }
+
+            if depth < 0 {
+                break;
+            }
+        }
+    }
+
     pub fn run(&mut self) {
         self.sigterm.store(false, Ordering::Relaxed);
 

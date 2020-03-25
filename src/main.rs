@@ -46,6 +46,11 @@ fn main() {
                 sys.show_cpu();
                 sys.show_per();
             }
+            "out" | "up" | "u" | "finish" | "fin" => {
+                sys.step_out();
+                sys.show_cpu();
+                sys.show_per();
+            }
             "sys" => {
                 sys.show_cpu();
                 sys.show_per();
