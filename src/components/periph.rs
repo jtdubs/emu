@@ -19,20 +19,20 @@ pub trait Attachment {
 
 #[allow(dead_code)]
 pub struct W65C22 {
-    port_a: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
-    port_b: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
-    orb: u8,
-    ora: u8,
-    ddrb: u8,
-    ddra: u8,
-    t1c: u16,
-    t1l: u16,
-    t2c: u16,
-    sr: u8,
-    acr: u8,
-    pcr: u8,
-    ifr: u8,
-    ier: u8,
+    pub port_a: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
+    pub port_b: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
+    pub orb: u8,
+    pub ora: u8,
+    pub ddrb: u8,
+    pub ddra: u8,
+    pub t1c: u16,
+    pub t1l: u16,
+    pub t2c: u16,
+    pub sr: u8,
+    pub acr: u8,
+    pub pcr: u8,
+    pub ifr: u8,
+    pub ier: u8,
 }
 
 impl fmt::Debug for W65C22 {
