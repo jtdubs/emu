@@ -138,11 +138,23 @@ impl System {
 
     pub fn list_breakpoints(&self) {
         self.breakpoints.iter().enumerate().for_each(|(ix, bp)| {
-            println!("{}: {:04x}", ix, bp);
+            let sym = if let Some(s) = self.addr2sym.get(&bp) {
+                s.clone()
+            } else {
+                format!("${:04x}", bp)
+            };
+
+            println!("{}: {}", ix, sym);
         });
     }
 
-    pub fn add_breakpoint(&mut self, addr: u16) {
+    pub fn add_breakpoint(&mut self, sym_or_addr: &str) {
+        let addr = if let Some(&a) = self.sym2addr.get(sym_or_addr) {
+            a
+        } else {
+            u16::from_str_radix(sym_or_addr, 16).unwrap()
+        };
+
         match self.breakpoints.iter().position(|&bp| bp == addr) {
             Some(ix) => {
                 println!("{}", ix);
@@ -210,7 +222,7 @@ impl System {
         for line in std::fs::read_to_string(path).unwrap().lines() {
             let mut words = line.split_ascii_whitespace();
             words.next().unwrap();
-            let addr : u16 = words.next().unwrap().parse().unwrap();
+            let addr = u16::from_str_radix(words.next().unwrap(), 16).unwrap();
             let mut sym = words.next().unwrap().to_string();
             sym.remove(0);
             self.sym2addr.insert(sym.clone(), addr);
@@ -224,16 +236,20 @@ impl System {
         let arg8 = cpu.peek(cpu.pc);
         let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc + 1) as u16) << 8);
 
-        let sym = self.addr2sym.get(&arg16).unwrap_or(&format!("${:04x}", arg16));
+        let sym = if let Some(s) = self.addr2sym.get(&arg16) {
+            s.clone()
+        } else {
+            format!("${:04x}", arg16)
+        };
 
         print!("{:?}", opcode);
 
         match address_mode {
-            cpu::AddressMode::Absolute => print!(" ${:04x}", arg16),
-            cpu::AddressMode::AbsoluteIndexedIndirect => print!(" (${:04x},x)", arg16),
-            cpu::AddressMode::AbsoluteIndexedWithX => print!(" ${:04x},x", arg16),
-            cpu::AddressMode::AbsoluteIndexedWithY => print!(" ${:04x},y", arg16),
-            cpu::AddressMode::AbsoluteIndirect => print!(" (${:04x})", arg16),
+            cpu::AddressMode::Absolute => print!(" {}", sym),
+            cpu::AddressMode::AbsoluteIndexedIndirect => print!(" ({},x)", sym),
+            cpu::AddressMode::AbsoluteIndexedWithX => print!(" {},x", sym),
+            cpu::AddressMode::AbsoluteIndexedWithY => print!(" {},y", sym),
+            cpu::AddressMode::AbsoluteIndirect => print!(" ({})", sym),
             cpu::AddressMode::Accumulator => {}
             cpu::AddressMode::ImmediateAddressing => print!(" #${:02x}", arg8),
             cpu::AddressMode::Implied => {}

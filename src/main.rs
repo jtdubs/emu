@@ -56,14 +56,8 @@ fn main() {
                 sys.show_per();
             }
             "bp" => sys.list_breakpoints(),
-            "break" => {
-                let addr: u16 = words.next().unwrap().parse().unwrap();
-                sys.add_breakpoint(addr);
-            }
-            "del" => {
-                let ix: usize = words.next().unwrap().parse().unwrap();
-                sys.remove_breakpoint(ix);
-            }
+            "break" | "br" | "b" => sys.add_breakpoint(words.next().unwrap()),
+            "del" => sys.remove_breakpoint(words.next().unwrap().parse().unwrap()),
             "cpu" => sys.show_cpu(),
             "per" => sys.show_per(),
             "zp" | "z" => sys.show_zp(),
