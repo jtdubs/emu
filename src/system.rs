@@ -3,6 +3,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::collections::HashMap;
 
 use crate::components::*;
 
@@ -15,24 +16,30 @@ pub struct System {
     pub ada: Rc<Mutex<HD44780UAdapter>>,
     pub dsp: Rc<Mutex<HD44780U>>,
     pub con: Rc<Mutex<SNESController>>,
-    sigterm: Arc<AtomicBool>,
     pub breakpoints: Vec<u16>,
+    sigterm: Arc<AtomicBool>,
+    sym2addr: HashMap<String, u16>,
+    addr2sym: HashMap<u16, String>
 }
 
 impl System {
-    pub fn new() -> System {
+    pub fn new(rom_path : &str, sym_path : &str) -> System {
         let mut sys = System {
             clk: Clock::new(),
             cpu: Rc::new(Mutex::new(W65C02S::new())),
             ram: Rc::new(Mutex::new(RAM::new(0x4000))),
-            rom: Rc::new(Mutex::new(ROM::load("rom.bin"))),
+            rom: Rc::new(Mutex::new(ROM::load(rom_path))),
             per: Rc::new(Mutex::new(W65C22::new())),
             ada: Rc::new(Mutex::new(HD44780UAdapter::new())),
             dsp: Rc::new(Mutex::new(HD44780U::new())),
             con: Rc::new(Mutex::new(SNESController::new())),
-            sigterm: Arc::new(AtomicBool::new(false)),
             breakpoints: Vec::new(),
+            sigterm: Arc::new(AtomicBool::new(false)),
+            sym2addr: HashMap::new(),
+            addr2sym: HashMap::new(),
         };
+
+        sys.read_symbols(sym_path);
 
         signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sys.sigterm)).unwrap();
 
@@ -199,11 +206,25 @@ impl System {
         );
     }
 
+    fn read_symbols(&mut self, path : &str) {
+        for line in std::fs::read_to_string(path).unwrap().lines() {
+            let mut words = line.split_ascii_whitespace();
+            words.next().unwrap();
+            let addr : u16 = words.next().unwrap().parse().unwrap();
+            let mut sym = words.next().unwrap().to_string();
+            sym.remove(0);
+            self.sym2addr.insert(sym.clone(), addr);
+            self.addr2sym.insert(addr, sym);
+        }
+    }
+
     fn show_instruction(&self, cpu: &W65C02S) {
         let (opcode, address_mode) = &cpu.ir;
 
         let arg8 = cpu.peek(cpu.pc);
         let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc + 1) as u16) << 8);
+
+        let sym = self.addr2sym.get(&arg16).unwrap_or(&format!("${:04x}", arg16));
 
         print!("{:?}", opcode);
 
@@ -218,12 +239,12 @@ impl System {
             cpu::AddressMode::Implied => {}
             cpu::AddressMode::ProgramCounterRelative => {}
             cpu::AddressMode::Stack => {}
-            cpu::AddressMode::ZeroPage => print!("  ${:02x}", arg8),
-            cpu::AddressMode::ZeroPageIndexedIndirect => print!("  (${:02x},x)", arg8),
-            cpu::AddressMode::ZeroPageIndexedWithX => print!("  ${:02x},x", arg8),
-            cpu::AddressMode::ZeroPageIndexedWithY => print!("  ${:02x},y", arg8),
-            cpu::AddressMode::ZeroPageIndirect => print!("  (${:02x})", arg8),
-            cpu::AddressMode::ZeroPageIndirectIndexedWithY => print!("  (${:02x},y)", arg8),
+            cpu::AddressMode::ZeroPage => print!(" ${:02x}", arg8),
+            cpu::AddressMode::ZeroPageIndexedIndirect => print!(" (${:02x},x)", arg8),
+            cpu::AddressMode::ZeroPageIndexedWithX => print!(" ${:02x},x", arg8),
+            cpu::AddressMode::ZeroPageIndexedWithY => print!(" ${:02x},y", arg8),
+            cpu::AddressMode::ZeroPageIndirect => print!(" (${:02x})", arg8),
+            cpu::AddressMode::ZeroPageIndirectIndexedWithY => print!(" (${:02x},y)", arg8),
         }
     }
 }
