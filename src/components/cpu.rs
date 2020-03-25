@@ -804,6 +804,16 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // CMP #
+                    ((Instruction::CMP, AddressMode::Absolute), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.update_carry_flag(self.a >= self.temp8);
+                        let val = self.a.wrapping_sub(self.temp8);
+                        self.update_zero_flag(val);
+                        self.update_negative_flag(val);
+                        self.tcu = 0;
+                    }
+
                     // CPX #
                     ((Instruction::CPX, AddressMode::ImmediateAddressing), 1) => {
                         let val = self.fetch();
@@ -838,7 +848,7 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::DEC, AddressMode::Absolute), 4) => {
-                        self.temp8 -= 1;
+                        self.temp8 = self.temp8.wrapping_sub(1);
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
@@ -883,7 +893,7 @@ impl clock::Attachment for W65C02S {
 
                     // INC A
                     ((Instruction::INC, AddressMode::Accumulator), 1) => {
-                        self.a += 1;
+                        self.a = self.a.wrapping_add(1);
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu = 0;
@@ -895,7 +905,7 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::INC, AddressMode::Absolute), 4) => {
-                        self.temp8 += 1;
+                        self.temp8 = self.temp8.wrapping_add(1);
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
@@ -967,7 +977,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // LDA a,x
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -975,7 +985,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // LDA a,y
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) => {
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 4) => {
                         self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
@@ -1217,6 +1227,12 @@ impl clock::Attachment for W65C02S {
 
                     // STA a
                     ((Instruction::STA, AddressMode::Absolute), 3) => {
+                        self.write(self.temp16, self.a);
+                        self.tcu = 0;
+                    }
+
+                    // STA a,x
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }

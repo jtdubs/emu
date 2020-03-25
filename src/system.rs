@@ -78,7 +78,7 @@ impl System {
 
     pub fn step_over(&mut self) {
         if self.cpu.lock().unwrap().ir.0 == cpu::Instruction::JSR {
-            self.breakpoints.push(self.cpu.lock().unwrap().pc + 3);
+            self.breakpoints.push(self.cpu.lock().unwrap().pc + 2);
             self.run();
             self.breakpoints.pop();
         } else {
@@ -130,7 +130,7 @@ impl System {
                 break;
             }
 
-            if self.breakpoints.contains(&self.cpu.lock().unwrap().pc) {
+            if self.breakpoints.contains(&(self.cpu.lock().unwrap().pc - 1)) {
                 break;
             }
         }
@@ -253,7 +253,7 @@ impl System {
             cpu::AddressMode::Accumulator => {}
             cpu::AddressMode::ImmediateAddressing => print!(" #${:02x}", arg8),
             cpu::AddressMode::Implied => {}
-            cpu::AddressMode::ProgramCounterRelative => {}
+            cpu::AddressMode::ProgramCounterRelative => print!(" #${:02x}", arg8),
             cpu::AddressMode::Stack => {}
             cpu::AddressMode::ZeroPage => print!(" ${:02x}", arg8),
             cpu::AddressMode::ZeroPageIndexedIndirect => print!(" (${:02x},x)", arg8),

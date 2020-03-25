@@ -1,5 +1,3 @@
-- CLI
-    - Breakpoints at instruction, or after instruction is decoded??
 - Controller
     - button states and handle shift register logic...
 - W65C02S
