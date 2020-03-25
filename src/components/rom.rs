@@ -16,6 +16,10 @@ impl ROM {
 }
 
 impl cpu::Attachment for ROM {
+    fn peek(&self, addr: u16) -> u8 {
+        self.mem[addr as usize]
+    }
+
     fn read(&mut self, addr: u16) -> u8 {
         let data = self.mem[addr as usize];
         debug!("R @ {:04x} = {:02x}", addr, data);

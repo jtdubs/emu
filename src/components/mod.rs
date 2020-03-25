@@ -1,11 +1,11 @@
-mod clock;
-mod cpu;
-mod display;
-mod periph;
-mod ram;
-mod rom;
-mod controller;
-mod system;
+pub mod clock;
+pub mod cpu;
+pub mod display;
+pub mod periph;
+pub mod ram;
+pub mod rom;
+pub mod controller;
+pub mod system;
 
 pub use clock::Clock;
 pub use cpu::W65C02S;

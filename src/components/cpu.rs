@@ -32,7 +32,7 @@ pub enum AddressMode {
     ZeroPageIndirectIndexedWithY, // (zp),y
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Instruction {
     ADC,
     AND,
@@ -385,6 +385,7 @@ pub enum CPUFlag {
 }
 
 pub trait Attachment {
+    fn peek(&self, addr: u16) -> u8;
     fn read(&mut self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, data: u8);
 
@@ -475,6 +476,10 @@ impl W65C02S {
         }
     }
 
+    pub fn peek(&self, addr: u16) -> u8 {
+        self.with_attachment(addr, |a, m| m.lock().unwrap().peek(a))
+    }
+
     fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
         self.with_attachment(addr, |a, m| m.lock().unwrap().read(a))
@@ -485,17 +490,17 @@ impl W65C02S {
         self.with_attachment(addr, |a, m| m.lock().unwrap().write(a, data))
     }
 
-    fn push(&mut self, val: u8) {
+    fn stack_push(&mut self, val: u8) {
         self.write(0x0100 + (self.s as u16), val);
         self.s = self.s.wrapping_sub(1);
     }
 
-    fn pop(&mut self) -> u8 {
+    fn stack_pop(&mut self) -> u8 {
         self.s = self.s.wrapping_add(1);
         self.read(0x0100 + (self.s as u16))
     }
 
-    fn peek(&mut self) -> u8 {
+    fn stack_peek(&mut self) -> u8 {
         self.read(0x0100 + (self.s as u16))
     }
 
@@ -744,15 +749,15 @@ impl clock::Attachment for W65C02S {
                     }
                     // BRK i/s
                     ((Instruction::BRK, _), 2) => {
-                        self.push((self.pc >> 8) as u8);
+                        self.stack_push((self.pc >> 8) as u8);
                         self.tcu += 1;
                     }
                     ((Instruction::BRK, _), 3) => {
-                        self.push((self.pc & 0xff) as u8);
+                        self.stack_push((self.pc & 0xff) as u8);
                         self.tcu += 1;
                     }
                     ((Instruction::BRK, _), 4) => {
-                        self.push(self.p);
+                        self.stack_push(self.p);
                         self.tcu += 1;
                     }
                     ((Instruction::BRK, _), 5) => {
@@ -928,15 +933,15 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 2) => {
-                        self.peek();
+                        self.stack_peek();
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 3) => {
-                        self.push((self.pc >> 8) as u8);
+                        self.stack_push((self.pc >> 8) as u8);
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 4) => {
-                        self.push((self.pc & 0xFF) as u8);
+                        self.stack_push((self.pc & 0xFF) as u8);
                         self.tcu += 1;
                     }
                     ((Instruction::JSR, AddressMode::Absolute), 5) => {
@@ -1032,7 +1037,7 @@ impl clock::Attachment for W65C02S {
 
                     // PHA s
                     ((Instruction::PHA, AddressMode::Stack), 1) => {
-                        self.push(self.a);
+                        self.stack_push(self.a);
                         self.tcu += 1;
                     }
                     ((Instruction::PHA, AddressMode::Stack), 2) => {
@@ -1041,7 +1046,7 @@ impl clock::Attachment for W65C02S {
 
                     // PHP s
                     ((Instruction::PHP, AddressMode::Stack), 1) => {
-                        self.push(self.p);
+                        self.stack_push(self.p);
                         self.tcu += 1;
                     }
                     ((Instruction::PHP, AddressMode::Stack), 2) => {
@@ -1050,7 +1055,7 @@ impl clock::Attachment for W65C02S {
 
                     // PHX s
                     ((Instruction::PHX, AddressMode::Stack), 1) => {
-                        self.push(self.x);
+                        self.stack_push(self.x);
                         self.tcu += 1;
                     }
                     ((Instruction::PHX, AddressMode::Stack), 2) => {
@@ -1059,7 +1064,7 @@ impl clock::Attachment for W65C02S {
 
                     // PHY s
                     ((Instruction::PHY, AddressMode::Stack), 1) => {
-                        self.push(self.y);
+                        self.stack_push(self.y);
                         self.tcu += 1;
                     }
                     ((Instruction::PHY, AddressMode::Stack), 2) => {
@@ -1068,7 +1073,7 @@ impl clock::Attachment for W65C02S {
 
                     // PLA s
                     ((Instruction::PLA, AddressMode::Stack), 1) => {
-                        self.a = self.pop();
+                        self.a = self.stack_pop();
                         self.tcu += 1;
                     }
                     ((Instruction::PLA, AddressMode::Stack), 2) => {
@@ -1080,7 +1085,7 @@ impl clock::Attachment for W65C02S {
 
                     // PLP s
                     ((Instruction::PLP, AddressMode::Stack), 1) => {
-                        self.p = self.pop();
+                        self.p = self.stack_pop();
                         self.tcu += 1;
                     }
                     ((Instruction::PLP, AddressMode::Stack), 2) => {
@@ -1092,7 +1097,7 @@ impl clock::Attachment for W65C02S {
 
                     // PLX s
                     ((Instruction::PLX, AddressMode::Stack), 1) => {
-                        self.x = self.pop();
+                        self.x = self.stack_pop();
                         self.tcu += 1;
                     }
                     ((Instruction::PLX, AddressMode::Stack), 2) => {
@@ -1104,7 +1109,7 @@ impl clock::Attachment for W65C02S {
 
                     // PLY s
                     ((Instruction::PLY, AddressMode::Stack), 1) => {
-                        self.y = self.pop();
+                        self.y = self.stack_pop();
                         self.tcu += 1;
                     }
                     ((Instruction::PLY, AddressMode::Stack), 2) => {
@@ -1132,21 +1137,21 @@ impl clock::Attachment for W65C02S {
 
                     // RTI s
                     ((Instruction::RTI, AddressMode::Stack), 1) => {
-                        self.p = self.pop();
+                        self.p = self.stack_pop();
                         self.tcu += 1;
                     }
                     ((Instruction::RTI, AddressMode::Stack), 2) => {
                         self.tcu += 1;
                     }
                     ((Instruction::RTI, AddressMode::Stack), 3) => {
-                        self.pc = self.pop() as u16;
+                        self.pc = self.stack_pop() as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::RTI, AddressMode::Stack), 4) => {
                         self.tcu += 1;
                     }
                     ((Instruction::RTI, AddressMode::Stack), 5) => {
-                        self.pc |= (self.pop() as u16) << 8;
+                        self.pc |= (self.stack_pop() as u16) << 8;
                         self.tcu = 0;
                     }
 
@@ -1156,15 +1161,15 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 2) => {
-                        self.peek();
+                        self.stack_peek();
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 3) => {
-                        self.temp16 = self.pop() as u16;
+                        self.temp16 = self.stack_pop() as u16;
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 4) => {
-                        self.temp16 |= (self.pop() as u16) << 8;
+                        self.temp16 |= (self.stack_pop() as u16) << 8;
                         self.tcu += 1;
                     }
                     ((Instruction::RTS, AddressMode::Stack), 5) => {

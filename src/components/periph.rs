@@ -13,6 +13,7 @@ pub enum Port {
 }
 
 pub trait Attachment {
+    fn peek(&self, p: Port) -> u8;
     fn read(&mut self, p: Port) -> u8;
     fn write(&mut self, p: Port, val: u8);
 }
@@ -126,6 +127,60 @@ impl clock::Attachment for W65C22 {
 }
 
 impl cpu::Attachment for W65C22 {
+    fn peek(&self, addr: u16) -> u8 {
+        match addr {
+            0x0 => {
+                (self.orb & self.ddrb)
+                    | (self
+                        .port_b
+                        .iter()
+                        .map(|(mask, device)| device.lock().unwrap().peek(Port::B) & *mask)
+                        .fold(0, |a, b| a | b)
+                        & !self.ddrb)
+            }
+            0x1 => {
+                unimplemented!();
+            }
+            0x2 => self.ddrb,
+            0x3 => self.ddra,
+            0x4 => {
+                (self.t1c & 0x00ff) as u8
+            }
+            0x5 => (self.t1c >> 8) as u8,
+            0x6 => {
+                (self.t1l & 0x00ff) as u8
+            }
+            0x7 => (self.t1l >> 8) as u8,
+            0x8 => {
+                unimplemented!("W65C22 - Read T2C_L");
+            }
+            0x9 => {
+                unimplemented!("W65C22 - Read T2C_H");
+            }
+            0xA => {
+                unimplemented!("W65C22 - Read SR");
+            }
+            0xB => {
+                unimplemented!("W65C22 - Read ACR");
+            }
+            0xC => {
+                unimplemented!("W65C22 - Read PCR");
+            }
+            0xD => self.ifr,
+            0xE => self.ier,
+            0xF => {
+                (self.ora & self.ddra)
+                    | (self
+                        .port_a
+                        .iter()
+                        .map(|(mask, device)| device.lock().unwrap().peek(Port::A) & *mask)
+                        .fold(0, |a, b| a | b)
+                        & !self.ddra)
+            }
+            _ => panic!("attempt to access invalid W65C22 register: {}", addr),
+        }
+    }
+
     fn read(&mut self, addr: u16) -> u8 {
         let data = match addr {
             0x0 => {

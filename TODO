@@ -1,9 +1,6 @@
 - CLI
-    - Show next two bytes after PC...
-    - Ideally pretty-print instructions given addressing mode and next bytes after PC
-    - Allow breakpoints ??
-    - Step into/over/out ??
-    - Pull all this pretty-print crap out of system into a debugger object
+    - Allow breakpoints ??  Step out ??
+    - Put all this pretty-print crap, and the stepping logic nto a debugger object
     - Pull system out of component folder
 - Controller
     - button states and handle shift register logic...

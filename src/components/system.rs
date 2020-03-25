@@ -55,13 +55,13 @@ impl System {
 
     pub fn show_cpu(&self) {
         let cpu = self.cpu.lock().unwrap();
-        println!(
-            "<{}> {:04x}: {:?} [{:?}]",
+        print!(
+            "<{}> {:04x}: ",
             get_flag_string(cpu.p),
-            cpu.pc,
-            cpu.ir.0,
-            cpu.ir.1
+            cpu.pc
         );
+        self.show_instruction(&cpu);
+        println!();
         println!(
             "A:{:02x}       X:{:02x}       Y:{:02x}          S:{:02x}",
             cpu.a, cpu.x, cpu.y, cpu.s
@@ -77,6 +77,12 @@ impl System {
     pub fn show_stack(&self) {
         let ram = self.ram.lock().unwrap();
         let slice = &ram.mem[0x100..0x200];
+        show_bytes(slice);
+    }
+
+    pub fn show_ram(&self) {
+        let ram = self.ram.lock().unwrap();
+        let slice = &ram.mem[0x200..];
         show_bytes(slice);
     }
 
@@ -97,6 +103,34 @@ impl System {
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr, per.ier
         );
+    }
+
+    fn show_instruction(&self, cpu: &W65C02S) {
+        let (opcode, address_mode) = &cpu.ir;
+
+        let arg8 = cpu.peek(cpu.pc);
+        let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc+1) as u16) << 8);
+
+        print!("{:?}", opcode);
+
+        match address_mode {
+            cpu::AddressMode::Absolute => print!(" ${:04x}", arg16),
+            cpu::AddressMode::AbsoluteIndexedIndirect => print!(" (${:04x},x)", arg16),
+            cpu::AddressMode::AbsoluteIndexedWithX => print!(" ${:04x},x", arg16),
+            cpu::AddressMode::AbsoluteIndexedWithY => print!(" ${:04x},y", arg16),
+            cpu::AddressMode::AbsoluteIndirect => print!(" (${:04x})", arg16),
+            cpu::AddressMode::Accumulator => {}
+            cpu::AddressMode::ImmediateAddressing => print!(" #${:02x}", arg8),
+            cpu::AddressMode::Implied => {}
+            cpu::AddressMode::ProgramCounterRelative => {}
+            cpu::AddressMode::Stack => {}
+            cpu::AddressMode::ZeroPage => print!("  ${:02x}", arg8),
+            cpu::AddressMode::ZeroPageIndexedIndirect => print!("  (${:02x},x)", arg8),
+            cpu::AddressMode::ZeroPageIndexedWithX => print!("  ${:02x},x", arg8),
+            cpu::AddressMode::ZeroPageIndexedWithY => print!("  ${:02x},y", arg8),
+            cpu::AddressMode::ZeroPageIndirect => print!("  (${:02x})", arg8),
+            cpu::AddressMode::ZeroPageIndirectIndexedWithY => print!("  (${:02x},y)", arg8),
+        }
     }
 }
 

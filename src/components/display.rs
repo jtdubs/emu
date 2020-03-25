@@ -77,6 +77,26 @@ impl HD44780U {
         }
     }
 
+    pub fn peek(&self, addr: RegisterSelector) -> u8 {
+        match addr {
+            RegisterSelector::Instruction => {
+                let mut result = self.addr;
+                if let State::Busy(_) = self.state {
+                    result |= 0x80;
+                }
+                result
+            }
+            RegisterSelector::Data => {
+                let offset = (self.addr & 0x3F) as usize;
+                if self.addr & 0x40 == 0x00 {
+                    self.line1[offset]
+                } else {
+                    self.line2[offset]
+                }
+            }
+        }
+    }
+
     pub fn read(&mut self, addr: RegisterSelector) -> u8 {
         match addr {
             RegisterSelector::Instruction => {
@@ -218,6 +238,17 @@ fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
 }
 
 impl periph::Attachment for HD44780UAdapter {
+    fn peek(&self, p: periph::Port) -> u8 {
+        if let Some(dsp) = &self.dsp {
+            match p {
+                periph::Port::A => 0u8,
+                periph::Port::B => dsp.lock().unwrap().peek(get_control(self.a_cache).0),
+            }
+        } else {
+            0u8
+        }
+    }
+
     fn read(&mut self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 

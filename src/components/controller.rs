@@ -10,6 +10,11 @@ impl SNESController {
 }
 
 impl periph::Attachment for SNESController {
+    fn peek(&self, _p: periph::Port) -> u8 {
+        // 0xff
+        0x00
+    }
+
     fn read(&mut self, _p: periph::Port) -> u8 {
         // 0xff
         0x00
