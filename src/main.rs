@@ -15,6 +15,7 @@ fn main() {
     let per = Rc::new(Mutex::new(W65C22::new()));
     let ada = Rc::new(Mutex::new(HD44780UAdapter::new()));
     let dsp = Rc::new(Mutex::new(HD44780U::new()));
+    let con = Rc::new(Mutex::new(SNESController::new()));
 
     clk.attach(cpu.clone());
     clk.attach(per.clone());
@@ -29,8 +30,9 @@ fn main() {
 
     {
         let mut p = per.lock().unwrap();
-        p.attach_a(ada.clone());
-        p.attach_b(ada.clone());
+        p.attach_a(0xE0, ada.clone());
+        p.attach_a(0x07, con.clone());
+        p.attach_b(0xFF, ada.clone());
     }
 
     {

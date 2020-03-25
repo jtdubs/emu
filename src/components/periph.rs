@@ -1,4 +1,4 @@
-use log::{debug,info};
+use log::debug;
 use std::fmt;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -7,17 +7,20 @@ use crate::components::clock;
 use crate::components::cpu;
 
 #[derive(Debug)]
-pub enum Port { A, B }
+pub enum Port {
+    A,
+    B,
+}
 
 pub trait Attachment {
-    fn read(&mut self, p : Port) -> u8;
-    fn write(&mut self, p : Port, val : u8);
+    fn read(&mut self, p: Port) -> u8;
+    fn write(&mut self, p: Port, val: u8);
 }
 
 #[allow(dead_code)]
 pub struct W65C22 {
-    port_a: Option<Rc<Mutex<dyn Attachment>>>,
-    port_b: Option<Rc<Mutex<dyn Attachment>>>,
+    port_a: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
+    port_b: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
     orb: u8,
     ora: u8,
     ddrb: u8,
@@ -46,8 +49,8 @@ impl fmt::Debug for W65C22 {
 impl W65C22 {
     pub fn new() -> W65C22 {
         W65C22 {
-            port_a: None,
-            port_b: None,
+            port_a: Vec::new(),
+            port_b: Vec::new(),
             orb: 0,
             ora: 0,
             ddrb: 0,
@@ -63,14 +66,12 @@ impl W65C22 {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn attach_a(&mut self, device: Rc<Mutex<dyn Attachment>>) {
-        self.port_a = Some(device);
+    pub fn attach_a(&mut self, mask: u8, device: Rc<Mutex<dyn Attachment>>) {
+        self.port_a.push((mask, device));
     }
 
-    #[allow(dead_code)]
-    pub fn attach_b(&mut self, device: Rc<Mutex<dyn Attachment>>) {
-        self.port_b = Some(device);
+    pub fn attach_b(&mut self, mask: u8, device: Rc<Mutex<dyn Attachment>>) {
+        self.port_b.push((mask, device));
     }
 
     fn set_interrupt(&mut self, i: Interrupts) {
@@ -90,7 +91,7 @@ impl W65C22 {
 
 #[derive(Debug)]
 enum Interrupts {
-    T1 = 0x40
+    T1 = 0x40,
 }
 
 impl clock::Attachment for W65C22 {
@@ -128,11 +129,13 @@ impl cpu::Attachment for W65C22 {
     fn read(&mut self, addr: u16) -> u8 {
         let data = match addr {
             0x0 => {
-                if let Some(b) = &self.port_b {
-                    (self.orb & self.ddrb) | (b.lock().unwrap().read(Port::B) & !self.ddrb)
-                } else {
-                    self.orb
-                }
+                (self.orb & self.ddrb)
+                    | (self
+                        .port_b
+                        .iter_mut()
+                        .map(|(mask, device)| device.lock().unwrap().read(Port::B) & *mask)
+                        .fold(0, |a, b| a | b)
+                        & !self.ddrb)
             }
             0x1 => {
                 unimplemented!();
@@ -143,16 +146,12 @@ impl cpu::Attachment for W65C22 {
                 self.clear_interrupt(Interrupts::T1);
                 (self.t1c & 0x00ff) as u8
             }
-            0x5 => {
-                (self.t1c >> 8) as u8
-            }
+            0x5 => (self.t1c >> 8) as u8,
             0x6 => {
                 self.clear_interrupt(Interrupts::T1);
                 (self.t1l & 0x00ff) as u8
             }
-            0x7 => {
-                (self.t1l >> 8) as u8
-            }
+            0x7 => (self.t1l >> 8) as u8,
             0x8 => {
                 unimplemented!("W65C22 - Read T2C_L");
             }
@@ -171,11 +170,13 @@ impl cpu::Attachment for W65C22 {
             0xD => self.ifr,
             0xE => self.ier,
             0xF => {
-                if let Some(a) = &self.port_a {
-                    (self.ora & self.ddra) | (a.lock().unwrap().read(Port::A) & !self.ddra)
-                } else {
-                    self.ora
-                }
+                (self.ora & self.ddra)
+                    | (self
+                        .port_a
+                        .iter_mut()
+                        .map(|(mask, device)| device.lock().unwrap().read(Port::A) & *mask)
+                        .fold(0, |a, b| a | b)
+                        & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         };
@@ -188,9 +189,8 @@ impl cpu::Attachment for W65C22 {
         match addr {
             0x0 => {
                 self.orb = data & self.ddrb;
-                if let Some(b) = &mut self.port_b {
-                    b.lock().unwrap().write(Port::B, self.orb);
-                }
+                let val = self.orb;
+                self.port_b.iter_mut().for_each(|(mask, device)| { device.lock().unwrap().write(Port::B, val & *mask); });
             }
             0x1 => {
                 unimplemented!("W65C22 - Access to ORA w/ handshake");
@@ -239,9 +239,8 @@ impl cpu::Attachment for W65C22 {
             }
             0xF => {
                 self.ora = data & self.ddra;
-                if let Some(a) = &mut self.port_a {
-                    a.lock().unwrap().write(Port::A, self.ora);
-                }
+                let val = self.ora;
+                self.port_a.iter_mut().for_each(|(mask, device)| { device.lock().unwrap().write(Port::A, val & *mask); });
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
