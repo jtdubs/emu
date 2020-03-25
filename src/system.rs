@@ -1,9 +1,10 @@
 use signal_hook;
+use std::collections::HashMap;
+use std::io::{stdout, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::collections::HashMap;
 
 use crate::components::*;
 
@@ -19,11 +20,11 @@ pub struct System {
     pub breakpoints: Vec<u16>,
     sigterm: Arc<AtomicBool>,
     sym2addr: HashMap<String, u16>,
-    addr2sym: HashMap<u16, String>
+    addr2sym: HashMap<u16, String>,
 }
 
 impl System {
-    pub fn new(rom_path : &str, sym_path : &str) -> System {
+    pub fn new(rom_path: &str, sym_path: &str) -> System {
         let mut sys = System {
             clk: Clock::new(),
             cpu: Rc::new(Mutex::new(W65C02S::new())),
@@ -116,13 +117,23 @@ impl System {
     }
 
     pub fn run(&mut self) {
+        let mut i : u32 = 0;
         self.sigterm.store(false, Ordering::Relaxed);
+        let mut stdout = stdout();
+
+        write!(stdout, "{}", termion::cursor::Hide).unwrap();
+
+        {
+            let dsp = self.dsp.lock().unwrap();
+            let (line1, line2) = dsp.get_output();
+            write!(stdout, "┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", line1, line2).unwrap();
+        }
 
         loop {
+
             self.step();
 
             if self.sigterm.load(Ordering::Relaxed) {
-                println!();
                 break;
             }
 
@@ -130,10 +141,23 @@ impl System {
                 break;
             }
 
-            if self.breakpoints.contains(&(self.cpu.lock().unwrap().pc - 1)) {
+            if self
+                .breakpoints
+                .contains(&(self.cpu.lock().unwrap().pc - 1))
+            {
                 break;
             }
+
+            i = i.wrapping_add(1);
+            if i % 1000 == 0 {
+                let dsp = self.dsp.lock().unwrap();
+                let (line1, line2) = dsp.get_output();
+                write!(stdout, "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", termion::cursor::Up(3), line1, line2).unwrap();
+            }
         }
+
+        write!(stdout, "{}{}\n", termion::cursor::Show, termion::cursor::Down(3)).unwrap();
+        stdout.flush().unwrap();
     }
 
     pub fn list_breakpoints(&self) {
@@ -203,7 +227,7 @@ impl System {
         let dsp = self.dsp.lock().unwrap();
         let (line1, line2) = dsp.get_output();
 
-        println!("S:{:?} A:{:02x}", dsp.state, dsp.addr);
+        // println!("S:{:?} A:{:02x}", dsp.state, dsp.addr);
         println!("┌────────────────┐");
         println!("│{}│", line1);
         println!("│{}│", line2);
@@ -218,7 +242,7 @@ impl System {
         );
     }
 
-    fn read_symbols(&mut self, path : &str) {
+    fn read_symbols(&mut self, path: &str) {
         for line in std::fs::read_to_string(path).unwrap().lines() {
             let mut words = line.split_ascii_whitespace();
             words.next().unwrap();

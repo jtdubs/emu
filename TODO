@@ -1,5 +1,5 @@
 - System
-    - Pretty print and update display during run...
+    - Update display only when written to
 - Controller
     - button states and handle shift register logic...
 - Timing

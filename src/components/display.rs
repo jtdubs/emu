@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 use std::fmt;
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -171,10 +171,10 @@ impl HD44780U {
 
                 if self.addr == 80 {
                     let (line1, line2) = self.get_output();
-                    info!("----------------");
-                    info!("{}", line1);
-                    info!("{}", line2);
-                    info!("----------------");
+                    debug!("----------------");
+                    debug!("{}", line1);
+                    debug!("{}", line2);
+                    debug!("----------------");
                 }
             }
         }
