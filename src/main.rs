@@ -26,19 +26,26 @@ fn main() {
 
         match buffer.trim_end() {
             "run" => {
-                println!("Running...");
                 term.store(false, Ordering::Relaxed);
                 while !term.load(Ordering::Relaxed) {
+                    while sys.cpu.lock().unwrap().tcu != 1 {
+                        sys.clk.cycle();
+                    }
+
                     if sys.cpu.lock().unwrap().is_halted() {
                         break;
                     }
+                }
+                println!();
+                sys.show();
+            }
+            "step" => {
+                sys.clk.cycle();
+                while sys.cpu.lock().unwrap().tcu != 1 {
                     sys.clk.cycle();
                 }
                 println!();
-                println!("CPU: {:x?}", sys.cpu.lock().unwrap());
-                println!("PER: {:x?}", sys.per.lock().unwrap());
-                println!("DSP: {:x?}", sys.dsp.lock().unwrap());
-                println!("CON: {:x?}", sys.con.lock().unwrap());
+                sys.show();
             }
             "quit" => {
                 return;

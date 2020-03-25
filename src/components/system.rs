@@ -52,4 +52,11 @@ impl System {
 
         sys
     }
+
+    pub fn show(&self) {
+        println!("CPU: {:x?}", self.cpu.lock().unwrap());
+        println!("PER: {:x?}", self.per.lock().unwrap());
+        println!("DSP: {:x?}", self.dsp.lock().unwrap());
+        println!("CON: {:x?}", self.con.lock().unwrap());
+    }
 }
