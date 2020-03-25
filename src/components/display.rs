@@ -25,6 +25,7 @@ pub struct HD44780U {
     pub line1: Vec<u8>,
     pub line2: Vec<u8>,
     pub charset: Vec<char>,
+    pub updated: bool,
 }
 
 impl fmt::Debug for HD44780U {
@@ -74,6 +75,7 @@ impl HD44780U {
             line1: line1,
             line2: line2,
             charset: charset,
+            updated: false,
         }
     }
 
@@ -168,14 +170,7 @@ impl HD44780U {
                 }
 
                 self.state = State::Busy(37);
-
-                if self.addr == 80 {
-                    let (line1, line2) = self.get_output();
-                    debug!("----------------");
-                    debug!("{}", line1);
-                    debug!("{}", line2);
-                    debug!("----------------");
-                }
+                self.updated = true;
             }
         }
     }
@@ -185,6 +180,12 @@ impl HD44780U {
             String::from_iter(self.line1[..16].iter().map(|c| self.charset[*c as usize])),
             String::from_iter(self.line2[..16].iter().map(|c| self.charset[*c as usize])),
         )
+    }
+
+    pub fn get_updated(&mut self) -> bool {
+        let result = self.updated;
+        self.updated = false;
+        result
     }
 }
 

@@ -34,7 +34,7 @@ fn main() {
 
         let mut words = command.split_ascii_whitespace();
 
-        match words.next().unwrap() {
+        match words.next().unwrap_or("") {
             "run" | "r" => {
                 sys.run();
                 sys.show_cpu();

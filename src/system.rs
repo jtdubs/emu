@@ -149,10 +149,12 @@ impl System {
             }
 
             i = i.wrapping_add(1);
-            if i % 1000 == 0 {
-                let dsp = self.dsp.lock().unwrap();
-                let (line1, line2) = dsp.get_output();
-                write!(stdout, "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", termion::cursor::Up(3), line1, line2).unwrap();
+            if i % 40 == 0 {
+                let mut dsp = self.dsp.lock().unwrap();
+                if dsp.get_updated() {
+                    let (line1, line2) = dsp.get_output();
+                    write!(stdout, "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", termion::cursor::Up(3), line1, line2).unwrap();
+                }
             }
         }
 
@@ -227,7 +229,6 @@ impl System {
         let dsp = self.dsp.lock().unwrap();
         let (line1, line2) = dsp.get_output();
 
-        // println!("S:{:?} A:{:02x}", dsp.state, dsp.addr);
         println!("┌────────────────┐");
         println!("│{}│", line1);
         println!("│{}│", line2);
