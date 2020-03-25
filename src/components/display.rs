@@ -32,8 +32,8 @@ impl fmt::Debug for HD44780U {
         f.debug_struct("HD44780U")
             .field("state", &self.state)
             .field("addr", &self.addr)
-            .field("line1", &String::from_utf8_lossy(&self.line1))
-            .field("line2", &String::from_utf8_lossy(&self.line2))
+            .field("line1", &String::from_iter(self.line1.iter().map(|c| { self.charset[*c as usize] })))
+            .field("line2", &String::from_iter(self.line2.iter().map(|c| { self.charset[*c as usize] })))
             .finish()
     }
 }

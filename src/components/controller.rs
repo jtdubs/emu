@@ -12,7 +12,8 @@ impl SNESController {
 
 impl periph::Attachment for SNESController {
     fn read(&mut self, _p: periph::Port) -> u8 {
-        0xff
+        // 0xff
+        0x00
     }
 
     fn write(&mut self, _p: periph::Port, _val: u8) {
