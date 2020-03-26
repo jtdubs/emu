@@ -117,6 +117,29 @@ impl System {
         }
     }
 
+    pub fn run_headless(&mut self) {
+        self.sigterm.store(false, Ordering::Relaxed);
+
+        loop {
+            self.step();
+
+            if self.sigterm.load(Ordering::Relaxed) {
+                break;
+            }
+
+            if self.cpu.lock().unwrap().is_halted() {
+                break;
+            }
+
+            if self
+                .breakpoints
+                .contains(&(self.cpu.lock().unwrap().pc - 1))
+            {
+                break;
+            }
+        }
+    }
+
     pub fn run(&mut self) {
         let mut i: u32 = 0;
         self.sigterm.store(false, Ordering::Relaxed);

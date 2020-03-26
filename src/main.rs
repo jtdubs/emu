@@ -40,6 +40,11 @@ fn main() {
                 sys.show_cpu();
                 sys.show_per();
             }
+            "headless" | "head" | "rh" => {
+                sys.run_headless();
+                sys.show_cpu();
+                sys.show_per();
+            }
             "step" | "s" => {
                 sys.step();
                 sys.show_cpu();
