@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::{stdout, Read, Write};
 use std::rc::Rc;
 use std::sync::Mutex;
+use std::time::{Instant, Duration};
 use termion::raw::IntoRawMode;
 
 use crate::components::*;
@@ -18,6 +19,8 @@ pub struct System {
     pub breakpoints: Vec<u16>,
     sym2addr: HashMap<String, u16>,
     addr2sym: HashMap<u16, String>,
+    last_cycle: Instant,
+    clock_period: Duration,
 }
 
 impl System {
@@ -34,6 +37,8 @@ impl System {
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
+            last_cycle: Instant::now(),
+            clock_period: Duration::new(0, 1000),
         };
 
         sys.read_symbols(sym_path);
@@ -65,10 +70,16 @@ impl System {
     }
 
     pub fn step(&mut self) {
-        self.clk.cycle();
+        self.cycle();
         while self.cpu.lock().unwrap().tcu != 1 {
-            self.clk.cycle();
+            self.cycle();
         }
+    }
+
+    pub fn cycle(&mut self) {
+        while Instant::now().duration_since(self.last_cycle) < self.clock_period {}
+        self.last_cycle = Instant::now();
+        self.clk.cycle();
     }
 
     pub fn step_over(&mut self) {

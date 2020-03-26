@@ -1,1 +1,5 @@
-- Timing
+- Benchmarking and speed improvements
+    - Less locking??  There's no actual multi-threading going on here...
+- Better command-line invocation
+- Better error handling (less panics)
+- More opcodes
