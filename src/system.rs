@@ -6,8 +6,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use termion::raw::IntoRawMode;
-//use termion::event::{Key, Event, MouseEvent};
-// use termion::input::{TermRead};
 
 use crate::components::*;
 
@@ -134,8 +132,10 @@ impl System {
             let (line1, line2) = dsp.get_output();
             write!(
                 stdout,
-                "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r{}",
-                line1, line2, termion::cursor::Up(1)
+                "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r\n>\r{}",
+                line1,
+                line2,
+                termion::cursor::Up(2)
             )
             .unwrap();
             stdout.flush().unwrap();
@@ -149,17 +149,20 @@ impl System {
             }
 
             if let Ok(x) = stdin.read(&mut buffer) {
-                for &c in buffer[0..x].iter() {
-                    match c as char {
-                        '\x03' => { break 'run_loop; }
-                        '\x1B' => { break 'run_loop; }
-                        'w' => { write!(stdout, "\nUP─────────────\r{}", termion::cursor::Up(1)).unwrap(); }
-                        'a' => { write!(stdout, "\nLEFT───────────\r{}", termion::cursor::Up(1)).unwrap(); }
-                        's' => { write!(stdout, "\nDOWN───────────\r{}", termion::cursor::Up(1)).unwrap(); }
-                        'd' => { write!(stdout, "\nRIGHT──────────\r{}", termion::cursor::Up(1)).unwrap(); }
-                        x =>   { write!(stdout, "\nUNKNOWN: {:02x}\r{}", x as u8, termion::cursor::Up(1)).unwrap(); }
-                        _ => {}
-                    }
+                match x {
+                    0 => {}
+                    1 => match buffer[0] as char {
+                        '\x03' => {
+                            break 'run_loop;
+                        }
+                        '\x1B' => {
+                            break 'run_loop;
+                        }
+                        c => {
+                            self.con.lock().unwrap().on_key(c);
+                        }
+                    },
+                    _ => {}
                 }
             }
 
