@@ -1,9 +1,6 @@
-use signal_hook;
 use std::collections::HashMap;
 use std::io::{stdout, Read, Write};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::sync::Mutex;
 use termion::raw::IntoRawMode;
 
@@ -19,7 +16,6 @@ pub struct System {
     pub dsp: Rc<Mutex<HD44780U>>,
     pub con: Rc<Mutex<SNESController>>,
     pub breakpoints: Vec<u16>,
-    sigterm: Arc<AtomicBool>,
     sym2addr: HashMap<String, u16>,
     addr2sym: HashMap<u16, String>,
 }
@@ -36,14 +32,11 @@ impl System {
             dsp: Rc::new(Mutex::new(HD44780U::new())),
             con: Rc::new(Mutex::new(SNESController::new())),
             breakpoints: Vec::new(),
-            sigterm: Arc::new(AtomicBool::new(false)),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
         };
 
         sys.read_symbols(sym_path);
-
-        signal_hook::flag::register(signal_hook::SIGINT, Arc::clone(&sys.sigterm)).unwrap();
 
         sys.clk.attach(sys.cpu.clone());
         sys.clk.attach(sys.per.clone());
@@ -91,8 +84,6 @@ impl System {
     pub fn step_out(&mut self) {
         let mut depth: i32 = 0;
 
-        self.sigterm.store(false, Ordering::Relaxed);
-
         loop {
             match self.cpu.lock().unwrap().ir.0 {
                 cpu::Instruction::JSR => depth += 1,
@@ -101,11 +92,6 @@ impl System {
             }
 
             self.step();
-
-            if self.sigterm.load(Ordering::Relaxed) {
-                println!();
-                break;
-            }
 
             if self.cpu.lock().unwrap().is_halted() {
                 break;
@@ -118,14 +104,8 @@ impl System {
     }
 
     pub fn run_headless(&mut self) {
-        self.sigterm.store(false, Ordering::Relaxed);
-
         loop {
             self.step();
-
-            if self.sigterm.load(Ordering::Relaxed) {
-                break;
-            }
 
             if self.cpu.lock().unwrap().is_halted() {
                 break;
@@ -142,10 +122,9 @@ impl System {
 
     pub fn run(&mut self) {
         let mut i: u32 = 0;
-        self.sigterm.store(false, Ordering::Relaxed);
 
         let mut stdout = stdout().into_raw_mode().unwrap();
-        let mut stdin = termion::async_stdin();
+        let mut stdin = termion::async_stdin_until(0x1B);
         let mut buffer = [0u8; 8];
 
         write!(stdout, "{}", termion::cursor::Hide).unwrap();
@@ -164,28 +143,20 @@ impl System {
             stdout.flush().unwrap();
         }
 
-        'run_loop: loop {
+        loop {
             self.step();
 
-            if self.sigterm.load(Ordering::Relaxed) {
-                break;
-            }
-
-            if let Ok(x) = stdin.read(&mut buffer) {
-                match x {
-                    0 => {}
-                    1 => match buffer[0] as char {
-                        '\x03' => {
-                            break 'run_loop;
-                        }
-                        '\x1B' => {
-                            break 'run_loop;
-                        }
-                        c => {
-                            self.con.lock().unwrap().on_key(c);
-                        }
-                    },
-                    _ => {}
+            match stdin.read(&mut buffer) {
+                Ok(1) => {
+                    if buffer[0] == 0x1B {
+                        break;
+                    } else {
+                        self.con.lock().unwrap().on_key(buffer[0] as char);
+                    }
+                }
+                Ok(_) => {}
+                Err(_) => {
+                    break;
                 }
             }
 

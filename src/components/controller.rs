@@ -1,5 +1,5 @@
 use crate::components::periph;
-use log::{debug, info};
+use log::debug;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -71,14 +71,18 @@ impl SNESController {
 
 impl periph::Attachment for SNESController {
     fn peek(&self, _p: periph::Port) -> u8 {
-        // 0xff
-        0x00
+        let entry = self.events.get(&self.cur_button).unwrap();
+        if *entry == 0 {
+            0x01
+        } else {
+            0x00
+        }
     }
 
     fn read(&mut self, p: periph::Port) -> u8 {
-        info!("R {:?}", p);
+        debug!("R {:?}", p);
 
-        let entry = self.events.get_mut(&self.cur_button).unwrap();
+        let entry = self.events.get(&self.cur_button).unwrap();
         if *entry == 0 {
             0x01
         } else {
@@ -87,7 +91,7 @@ impl periph::Attachment for SNESController {
     }
 
     fn write(&mut self, p: periph::Port, val: u8) {
-        info!("W {:?} = {:?}", p, val);
+        debug!("W {:?} = {:?}", p, val);
         match val {
             0x02 => {
                 self.cur_button = Button::A;
