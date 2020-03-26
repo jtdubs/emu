@@ -1,51 +1,68 @@
 use crate::components::periph;
 use log::{debug, info};
+use std::collections::HashMap;
 
-pub enum Buttons {
-    A = 0x01,
-    B = 0x02,
-    Select = 0x04,
-    Start = 0x08,
-    Up = 0x10,
-    Down = 0x20,
-    Left = 0x40,
-    Right = 0x80
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum Button {
+    A = 1,
+    B = 2,
+    Select = 3,
+    Start = 4,
+    Up = 5,
+    Down = 6,
+    Left = 7,
+    Right = 8,
 }
 
 #[derive(Debug)]
 pub struct SNESController {
+    pub events: HashMap<Button, i8>,
+    pub cur_button: Button,
 }
 
 impl SNESController {
     pub fn new() -> SNESController {
-        SNESController {}
+        let mut events = HashMap::new();
+        events.insert(Button::A, 0);
+        events.insert(Button::B, 0);
+        events.insert(Button::Select, 0);
+        events.insert(Button::Start, 0);
+        events.insert(Button::Up, 0);
+        events.insert(Button::Down, 0);
+        events.insert(Button::Left, 0);
+        events.insert(Button::Right, 0);
+
+        SNESController {
+            events: events,
+            cur_button: Button::A,
+        }
     }
 
     pub fn on_key(&mut self, c: char) {
         match c {
             'w' => {
-                info!("on_key: UP");
+                *self.events.get_mut(&Button::Up).unwrap() += 1;
             }
             's' => {
-                info!("on_key: DOWN");
+                *self.events.get_mut(&Button::Down).unwrap() += 1;
             }
             'a' => {
-                info!("on_key: LEFT");
+                *self.events.get_mut(&Button::Left).unwrap() += 1;
             }
             'd' => {
-                info!("on_key: RIGHT");
+                *self.events.get_mut(&Button::Right).unwrap() += 1;
             }
             'j' => {
-                info!("on_key: A");
+                *self.events.get_mut(&Button::A).unwrap() += 1;
             }
             'k' => {
-                info!("on_key: B");
+                *self.events.get_mut(&Button::B).unwrap() += 1;
             }
             'l' => {
-                info!("on_key: SELECT");
+                *self.events.get_mut(&Button::Select).unwrap() += 1;
             }
             ';' => {
-                info!("on_key: START");
+                *self.events.get_mut(&Button::Start).unwrap() += 1;
             }
             _ => {}
         }
@@ -60,50 +77,38 @@ impl periph::Attachment for SNESController {
 
     fn read(&mut self, p: periph::Port) -> u8 {
         info!("R {:?}", p);
-        // A B SEL STA U D L R
-        // Zero == pressed
-        0x00
+
+        let entry = self.events.get_mut(&self.cur_button).unwrap();
+        if *entry == 0 {
+            0x01
+        } else {
+            0x00
+        }
     }
 
     fn write(&mut self, p: periph::Port, val: u8) {
         info!("W {:?} = {:?}", p, val);
+        match val {
+            0x02 => {
+                self.cur_button = Button::A;
+            }
+            0x04 => {
+                let event = self.events.get_mut(&self.cur_button).unwrap();
+                if *event > 0 {
+                    *event -= 1;
+                }
+                self.cur_button = match self.cur_button {
+                    Button::A => Button::B,
+                    Button::B => Button::Select,
+                    Button::Select => Button::Start,
+                    Button::Start => Button::Up,
+                    Button::Up => Button::Down,
+                    Button::Down => Button::Left,
+                    Button::Left => Button::Right,
+                    Button::Right => Button::A,
+                };
+            }
+            _ => {}
+        }
     }
 }
-
-// W A = 2
-// W A = 0
-// R A // A
-// R A
-// W A = 4
-// W A = 0
-// R A // B
-// R A
-// W A = 4
-// W A = 0
-// R A // SEL
-// R A
-// W A = 4
-// W A = 0
-// R A // STA
-// R A
-// W A = 4
-// W A = 0
-// R A // UP
-// R A
-// W A = 4
-// W A = 0
-// R A // DOWN
-// R A
-// W A = 4
-// W A = 0
-// R A // LET
-// R A
-// W A = 4
-// W A = 0
-// R A // RIGHT
-// R A
-// W A = 4
-// W A = 0
-// W A = 0
-// W A = 0
-// W A = 0
