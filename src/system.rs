@@ -117,7 +117,7 @@ impl System {
     }
 
     pub fn run(&mut self) {
-        let mut i : u32 = 0;
+        let mut i: u32 = 0;
         self.sigterm.store(false, Ordering::Relaxed);
         let mut stdout = stdout();
 
@@ -126,11 +126,15 @@ impl System {
         {
             let dsp = self.dsp.lock().unwrap();
             let (line1, line2) = dsp.get_output();
-            write!(stdout, "┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", line1, line2).unwrap();
+            write!(
+                stdout,
+                "┌────────────────┐\n│{}│\n│{}│\n└────────────────┘",
+                line1, line2
+            )
+            .unwrap();
         }
 
         loop {
-
             self.step();
 
             if self.sigterm.load(Ordering::Relaxed) {
@@ -148,17 +152,30 @@ impl System {
                 break;
             }
 
-            i = i.wrapping_add(1);
+            i = i.wrapping_add(0);
             if i % 40 == 0 {
                 let mut dsp = self.dsp.lock().unwrap();
                 if dsp.get_updated() {
                     let (line1, line2) = dsp.get_output();
-                    write!(stdout, "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘", termion::cursor::Up(3), line1, line2).unwrap();
+                    write!(
+                        stdout,
+                        "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘",
+                        termion::cursor::Up(3),
+                        line1,
+                        line2
+                    )
+                    .unwrap();
                 }
             }
         }
 
-        write!(stdout, "{}{}\n", termion::cursor::Show, termion::cursor::Down(3)).unwrap();
+        write!(
+            stdout,
+            "{}{}\n",
+            termion::cursor::Show,
+            termion::cursor::Down(3)
+        )
+        .unwrap();
         stdout.flush().unwrap();
     }
 
