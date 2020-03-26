@@ -1,10 +1,13 @@
 use signal_hook;
 use std::collections::HashMap;
-use std::io::{stdout, Write};
+use std::io::{stdout, Read, Write};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use termion::raw::IntoRawMode;
+//use termion::event::{Key, Event, MouseEvent};
+// use termion::input::{TermRead};
 
 use crate::components::*;
 
@@ -119,7 +122,10 @@ impl System {
     pub fn run(&mut self) {
         let mut i: u32 = 0;
         self.sigterm.store(false, Ordering::Relaxed);
-        let mut stdout = stdout();
+
+        let mut stdout = stdout().into_raw_mode().unwrap();
+        let mut stdin = termion::async_stdin();
+        let mut buffer = [0u8; 8];
 
         write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
@@ -128,17 +134,33 @@ impl System {
             let (line1, line2) = dsp.get_output();
             write!(
                 stdout,
-                "┌────────────────┐\n│{}│\n│{}│\n└────────────────┘",
-                line1, line2
+                "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r{}",
+                line1, line2, termion::cursor::Up(1)
             )
             .unwrap();
+            stdout.flush().unwrap();
         }
 
-        loop {
+        'run_loop: loop {
             self.step();
 
             if self.sigterm.load(Ordering::Relaxed) {
                 break;
+            }
+
+            if let Ok(x) = stdin.read(&mut buffer) {
+                for &c in buffer[0..x].iter() {
+                    match c as char {
+                        '\x03' => { break 'run_loop; }
+                        '\x1B' => { break 'run_loop; }
+                        'w' => { write!(stdout, "\nUP─────────────\r{}", termion::cursor::Up(1)).unwrap(); }
+                        'a' => { write!(stdout, "\nLEFT───────────\r{}", termion::cursor::Up(1)).unwrap(); }
+                        's' => { write!(stdout, "\nDOWN───────────\r{}", termion::cursor::Up(1)).unwrap(); }
+                        'd' => { write!(stdout, "\nRIGHT──────────\r{}", termion::cursor::Up(1)).unwrap(); }
+                        x =>   { write!(stdout, "\nUNKNOWN: {:02x}\r{}", x as u8, termion::cursor::Up(1)).unwrap(); }
+                        _ => {}
+                    }
+                }
             }
 
             if self.cpu.lock().unwrap().is_halted() {
@@ -159,8 +181,8 @@ impl System {
                     let (line1, line2) = dsp.get_output();
                     write!(
                         stdout,
-                        "\r{}┌────────────────┐\n│{}│\n│{}│\n└────────────────┘",
-                        termion::cursor::Up(3),
+                        "{}│{}│\r\n│{}│\r",
+                        termion::cursor::Up(1),
                         line1,
                         line2
                     )
