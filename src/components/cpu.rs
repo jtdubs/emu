@@ -611,7 +611,9 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3) |
                     ((Instruction::ADC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 5) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
                         let op1 = self.a as u16;
                         let op2 = self.read(self.temp16) as u16;
@@ -1319,10 +1321,11 @@ impl clock::Attachment for W65C02S {
                     // Defaults based on Address Mode
                     //
 
+                    // Fetch temp16 low
                     ((_, AddressMode::Absolute), 1) |
+                    ((_, AddressMode::AbsoluteIndexedIndirect), 1) |
                     ((_, AddressMode::AbsoluteIndexedWithX), 1) |
                     ((_, AddressMode::AbsoluteIndexedWithY), 1) |
-                    ((_, AddressMode::AbsoluteIndexedIndirect), 1) |
                     ((_, AddressMode::AbsoluteIndirect), 1) |
                     ((_, AddressMode::ZeroPage), 1) |
                     ((_, AddressMode::ZeroPageIndexedWithX), 1) |
@@ -1331,12 +1334,14 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
 
+                    // Fetch temp16 high
                     ((_, AddressMode::Absolute), 2) |
                     ((_, AddressMode::AbsoluteIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.tcu += 1;
                     }
 
+                    // Fetch temp16 high + x
                     ((_, AddressMode::AbsoluteIndexedWithX), 2) |
                     ((_, AddressMode::AbsoluteIndexedIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
@@ -1344,18 +1349,21 @@ impl clock::Attachment for W65C02S {
                         self.tcu += 1;
                     }
 
+                    // Fetch temp16 high + y
                     ((_, AddressMode::AbsoluteIndexedWithY), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.temp16 += self.y as u16;
                         self.tcu += 1;
                     }
 
+                    // Read temp8
                     ((_, AddressMode::AbsoluteIndexedIndirect), 3) |
                     ((_, AddressMode::AbsoluteIndirect), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
 
+                    // Offset PC
                     ((_, AddressMode::ProgramCounterRelative), 2) => {
                         let offset = self.temp8 as i8;
                         if offset >= 0 {
@@ -1366,24 +1374,48 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // Offset by x
                     ((_, AddressMode::ZeroPageIndexedWithX), 2) => {
                         self.temp16 += self.x as u16;
                         self.tcu += 1;
                     }
 
+                    // Offset by y
                     ((_, AddressMode::ZeroPageIndexedWithY), 2) => {
                         self.temp16 += self.y as u16;
                         self.tcu += 1;
                     }
 
+                    // Fetch temp8
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 1) |
+                    ((_, AddressMode::ZeroPageIndirect), 1) |
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 1) => {
                         self.temp8 = self.fetch();
                         self.tcu += 1;
                     }
+
+                    // Offset temp8 by x
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 2) => {
+                        self.temp8 += self.x;
+                        self.tcu += 1;
+                    }
+
+                    // Read temp16 low
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 3) |
+                    ((_, AddressMode::ZeroPageIndirect), 2) |
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 2) => {
                         self.temp16 = self.read(self.temp8 as u16) as u16;
                         self.tcu += 1;
                     }
+
+                    // Read temp16 high
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 4) |
+                    ((_, AddressMode::ZeroPageIndirect), 3) => {
+                        self.temp16 |= (self.read((self.temp8 + 1) as u16) as u16) << 8;
+                        self.tcu += 1;
+                    }
+
+                    // Read temp16 high; offset by y
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 3) => {
                         self.temp16 |= (self.read((self.temp8 + 1) as u16) as u16) << 8;
                         self.temp16 += self.y as u16;
