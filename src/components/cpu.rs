@@ -618,22 +618,24 @@ impl clock::Attachment for W65C02S {
                     //
                     // ADC
                     //
-                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::ADC, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ADC, AddressMode::Absolute), 3) |
-                    ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::ADC, AddressMode::ZeroPage), 2)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::ADC, AddressMode::Absolute), 3)
+                    | ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
                         let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch() as u16
                         } else {
                             self.read(self.temp16) as u16
                         };
-                        let sum = op1.wrapping_add(op2).wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
+                        let sum = op1
+                            .wrapping_add(op2)
+                            .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                         self.a = sum as u8;
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
@@ -645,15 +647,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // AND
                     //
-                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::AND, AddressMode::ZeroPage), 2) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::AND, AddressMode::Absolute), 3) |
-                    ((Instruction::AND, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::AND, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::AND, AddressMode::ZeroPage), 2)
+                    | ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::AND, AddressMode::Absolute), 3)
+                    | ((Instruction::AND, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::AND, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::AND, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) => {
                         self.a &= if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -675,17 +677,17 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::ASL, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ASL, AddressMode::Absolute), 3) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::ASL, AddressMode::ZeroPage), 2)
+                    | ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::ASL, AddressMode::Absolute), 3)
+                    | ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::ZeroPage), 3) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::ASL, AddressMode::Absolute), 4) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::ASL, AddressMode::ZeroPage), 3)
+                    | ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::ASL, AddressMode::Absolute), 4)
+                    | ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 <<= 1;
                         self.update_zero_flag(self.temp8 == 0);
@@ -695,10 +697,10 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::ZeroPage), 4) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::ASL, AddressMode::Absolute), 5) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 6) => {
+                    ((Instruction::ASL, AddressMode::ZeroPage), 4)
+                    | ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::ASL, AddressMode::Absolute), 5)
+                    | ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -706,18 +708,18 @@ impl clock::Attachment for W65C02S {
                     //
                     // BBR / BBS
                     //
-                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 1) |
-                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 1) => {
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 1)
+                    | ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 1) => {
                         self.temp16 = self.fetch() as u16;
                         self.tcu += 1;
                     }
-                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 2) |
-                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 2) => {
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 2)
+                    | ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 2) => {
                         self.temp8 = self.fetch();
                         self.tcu += 1;
                     }
-                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 3) |
-                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 3) => {
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 3)
+                    | ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 3) => {
                         self.temp16 = self.read(self.temp16) as u16;
                         self.tcu += 1;
                     }
@@ -768,11 +770,11 @@ impl clock::Attachment for W65C02S {
                     //
                     // BIT
                     //
-                    ((Instruction::BIT, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::BIT, AddressMode::ZeroPage), 2) |
-                    ((Instruction::BIT, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::BIT, AddressMode::Absolute), 3) |
-                    ((Instruction::BIT, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::BIT, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::BIT, AddressMode::ZeroPage), 2)
+                    | ((Instruction::BIT, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::BIT, AddressMode::Absolute), 3)
+                    | ((Instruction::BIT, AddressMode::AbsoluteIndexedWithX), 3) => {
                         let val = self.a & self.read(self.temp16);
                         self.update_zero_flag(val == 0);
                         self.update_overflow_flag(val & 0x40 == 0x40);
@@ -890,15 +892,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // CMP
                     //
-                    ((Instruction::CMP, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::CMP, AddressMode::ZeroPage), 2) |
-                    ((Instruction::CMP, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::CMP, AddressMode::Absolute), 3) |
-                    ((Instruction::CMP, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::CMP, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::CMP, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::CMP, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::CMP, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::CMP, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::CMP, AddressMode::ZeroPage), 2)
+                    | ((Instruction::CMP, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::CMP, AddressMode::Absolute), 3)
+                    | ((Instruction::CMP, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::CMP, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::CMP, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::CMP, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::CMP, AddressMode::ZeroPageIndirect), 4) => {
                         self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -915,9 +917,9 @@ impl clock::Attachment for W65C02S {
                     //
                     // CPX
                     //
-                    ((Instruction::CPX, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::CPX, AddressMode::ZeroPage), 2) |
-                    ((Instruction::CPX, AddressMode::Absolute), 3) => {
+                    ((Instruction::CPX, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::CPX, AddressMode::ZeroPage), 2)
+                    | ((Instruction::CPX, AddressMode::Absolute), 3) => {
                         self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -934,9 +936,9 @@ impl clock::Attachment for W65C02S {
                     //
                     // CPY
                     //
-                    ((Instruction::CPY, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::CPY, AddressMode::ZeroPage), 2) |
-                    ((Instruction::CPY, AddressMode::Absolute), 3) => {
+                    ((Instruction::CPY, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::CPY, AddressMode::ZeroPage), 2)
+                    | ((Instruction::CPY, AddressMode::Absolute), 3) => {
                         self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -959,26 +961,26 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::DEC, AddressMode::ZeroPage), 2) |
-                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::DEC, AddressMode::Absolute), 3) |
-                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 2)
+                    | ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::DEC, AddressMode::Absolute), 3)
+                    | ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::DEC, AddressMode::ZeroPage), 3) |
-                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::DEC, AddressMode::Absolute), 4) |
-                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 3)
+                    | ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::DEC, AddressMode::Absolute), 4)
+                    | ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.temp8 = self.temp8.wrapping_sub(1);
                         self.update_zero_flag(self.temp8 == 0);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::DEC, AddressMode::ZeroPage), 4) |
-                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::DEC, AddressMode::Absolute), 5) |
-                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 5) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 4)
+                    | ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::DEC, AddressMode::Absolute), 5)
+                    | ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1006,15 +1008,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // EOR
                     //
-                    ((Instruction::EOR, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::EOR, AddressMode::ZeroPage), 2) |
-                    ((Instruction::EOR, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::EOR, AddressMode::Absolute), 3) |
-                    ((Instruction::EOR, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::EOR, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::EOR, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::EOR, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::EOR, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::EOR, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::EOR, AddressMode::ZeroPage), 2)
+                    | ((Instruction::EOR, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::EOR, AddressMode::Absolute), 3)
+                    | ((Instruction::EOR, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::EOR, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::EOR, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::EOR, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::EOR, AddressMode::ZeroPageIndirect), 4) => {
                         self.a ^= if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -1035,26 +1037,26 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::INC, AddressMode::ZeroPage), 2) |
-                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::INC, AddressMode::Absolute), 3) |
-                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 2)
+                    | ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::INC, AddressMode::Absolute), 3)
+                    | ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::INC, AddressMode::ZeroPage), 3) |
-                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::INC, AddressMode::Absolute), 4) |
-                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 3)
+                    | ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::INC, AddressMode::Absolute), 4)
+                    | ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.temp8 = self.temp8.wrapping_add(1);
                         self.update_zero_flag(self.temp8 == 0);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::INC, AddressMode::ZeroPage), 4) |
-                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::INC, AddressMode::Absolute), 5) |
-                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 5) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 4)
+                    | ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::INC, AddressMode::Absolute), 5)
+                    | ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1086,16 +1088,16 @@ impl clock::Attachment for W65C02S {
                         self.pc = self.temp16 | ((self.fetch() as u16) << 8);
                         self.tcu = 0;
                     }
-                    ((Instruction::JMP, AddressMode::AbsoluteIndirect), 3) |
-                    ((Instruction::JMP, AddressMode::AbsoluteIndexedIndirect), 3) => {
+                    ((Instruction::JMP, AddressMode::AbsoluteIndirect), 3)
+                    | ((Instruction::JMP, AddressMode::AbsoluteIndexedIndirect), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
                     ((Instruction::JMP, AddressMode::AbsoluteIndexedIndirect), 4) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::JMP, AddressMode::AbsoluteIndirect), 4) |
-                    ((Instruction::JMP, AddressMode::AbsoluteIndexedIndirect), 5) => {
+                    ((Instruction::JMP, AddressMode::AbsoluteIndirect), 4)
+                    | ((Instruction::JMP, AddressMode::AbsoluteIndexedIndirect), 5) => {
                         self.pc = self.temp8 as u16;
                         self.pc |= (self.read(self.temp16 + 1) as u16) << 8;
                         self.tcu = 0;
@@ -1129,15 +1131,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // LDA
                     //
-                    ((Instruction::LDA, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::LDA, AddressMode::ZeroPage), 2) |
-                    ((Instruction::LDA, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::LDA, AddressMode::Absolute), 3) |
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::LDA, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::LDA, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::LDA, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::LDA, AddressMode::ZeroPage), 2)
+                    | ((Instruction::LDA, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::LDA, AddressMode::Absolute), 3)
+                    | ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::LDA, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::LDA, AddressMode::ZeroPageIndirect), 4) => {
                         self.a = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -1152,11 +1154,11 @@ impl clock::Attachment for W65C02S {
                     //
                     // LDX
                     //
-                    ((Instruction::LDX, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::LDX, AddressMode::ZeroPage), 2) |
-                    ((Instruction::LDX, AddressMode::ZeroPageIndexedWithY), 3) |
-                    ((Instruction::LDX, AddressMode::Absolute), 3) |
-                    ((Instruction::LDX, AddressMode::AbsoluteIndexedWithY), 3) => {
+                    ((Instruction::LDX, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::LDX, AddressMode::ZeroPage), 2)
+                    | ((Instruction::LDX, AddressMode::ZeroPageIndexedWithY), 3)
+                    | ((Instruction::LDX, AddressMode::Absolute), 3)
+                    | ((Instruction::LDX, AddressMode::AbsoluteIndexedWithY), 3) => {
                         self.x = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -1171,11 +1173,11 @@ impl clock::Attachment for W65C02S {
                     //
                     // LDY
                     //
-                    ((Instruction::LDY, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::LDY, AddressMode::ZeroPage), 2) |
-                    ((Instruction::LDY, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::LDY, AddressMode::Absolute), 3) |
-                    ((Instruction::LDY, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::LDY, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::LDY, AddressMode::ZeroPage), 2)
+                    | ((Instruction::LDY, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::LDY, AddressMode::Absolute), 3)
+                    | ((Instruction::LDY, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.y = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -1197,17 +1199,17 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::LSR, AddressMode::ZeroPage), 2) |
-                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::LSR, AddressMode::Absolute), 3) |
-                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::LSR, AddressMode::ZeroPage), 2)
+                    | ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::LSR, AddressMode::Absolute), 3)
+                    | ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::LSR, AddressMode::ZeroPage), 3) |
-                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::LSR, AddressMode::Absolute), 4) |
-                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::LSR, AddressMode::ZeroPage), 3)
+                    | ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::LSR, AddressMode::Absolute), 4)
+                    | ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.update_carry_flag(self.temp8 & 0x01 == 0x01);
                         self.temp8 >>= 1;
                         self.update_zero_flag(self.temp8 == 0);
@@ -1217,10 +1219,10 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::LSR, AddressMode::ZeroPage), 4) |
-                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::LSR, AddressMode::Absolute), 5) |
-                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 6) => {
+                    ((Instruction::LSR, AddressMode::ZeroPage), 4)
+                    | ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::LSR, AddressMode::Absolute), 5)
+                    | ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1235,15 +1237,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // ORA
                     //
-                    ((Instruction::ORA, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::ORA, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ORA, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ORA, AddressMode::Absolute), 3) |
-                    ((Instruction::ORA, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::ORA, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::ORA, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::ORA, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::ORA, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::ORA, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::ORA, AddressMode::ZeroPage), 2)
+                    | ((Instruction::ORA, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::ORA, AddressMode::Absolute), 3)
+                    | ((Instruction::ORA, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::ORA, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::ORA, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::ORA, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::ORA, AddressMode::ZeroPageIndirect), 4) => {
                         self.a |= if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -1382,17 +1384,17 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::ROL, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ROL, AddressMode::Absolute), 3) |
-                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::ROL, AddressMode::ZeroPage), 2)
+                    | ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::ROL, AddressMode::Absolute), 3)
+                    | ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ROL, AddressMode::ZeroPage), 3) |
-                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::ROL, AddressMode::Absolute), 4) |
-                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::ROL, AddressMode::ZeroPage), 3)
+                    | ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::ROL, AddressMode::Absolute), 4)
+                    | ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 4) => {
                         let c = self.p & 1;
                         self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 = (self.temp8 << 1) | c;
@@ -1403,10 +1405,10 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::ROL, AddressMode::ZeroPage), 4) |
-                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::ROL, AddressMode::Absolute), 5) |
-                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 6) => {
+                    ((Instruction::ROL, AddressMode::ZeroPage), 4)
+                    | ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::ROL, AddressMode::Absolute), 5)
+                    | ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1422,17 +1424,17 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::ROR, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ROR, AddressMode::Absolute), 3) |
-                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::ROR, AddressMode::ZeroPage), 2)
+                    | ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::ROR, AddressMode::Absolute), 3)
+                    | ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ROR, AddressMode::ZeroPage), 3) |
-                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 4) |
-                    ((Instruction::ROR, AddressMode::Absolute), 4) |
-                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 4) => {
+                    ((Instruction::ROR, AddressMode::ZeroPage), 3)
+                    | ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::ROR, AddressMode::Absolute), 4)
+                    | ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 4) => {
                         let c = self.p & 1;
                         self.update_carry_flag(self.temp8 & 0x01 == 0x01);
                         self.temp8 = (self.temp8 >> 1) | (c << 7);
@@ -1443,10 +1445,10 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::ROR, AddressMode::ZeroPage), 4) |
-                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 5) |
-                    ((Instruction::ROR, AddressMode::Absolute), 5) |
-                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 6) => {
+                    ((Instruction::ROR, AddressMode::ZeroPage), 4)
+                    | ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 5)
+                    | ((Instruction::ROR, AddressMode::Absolute), 5)
+                    | ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1501,22 +1503,24 @@ impl clock::Attachment for W65C02S {
                     //
                     // SBC
                     //
-                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::SBC, AddressMode::ZeroPage), 2) |
-                    ((Instruction::SBC, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::SBC, AddressMode::Absolute), 3) |
-                    ((Instruction::SBC, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::SBC, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::SBC, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
-                    ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 1)
+                    | ((Instruction::SBC, AddressMode::ZeroPage), 2)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::SBC, AddressMode::Absolute), 3)
+                    | ((Instruction::SBC, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::SBC, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 4)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
                         let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch() as u16
                         } else {
                             self.read(self.temp16) as u16
                         };
-                        let diff = op1.wrapping_sub(op2).wrapping_sub(1u16.wrapping_sub((self.p & (CPUFlag::Carry as u8)) as u16));
+                        let diff = op1.wrapping_sub(op2).wrapping_sub(
+                            1u16.wrapping_sub((self.p & (CPUFlag::Carry as u8)) as u16),
+                        );
                         self.a = diff as u8;
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
@@ -1568,19 +1572,19 @@ impl clock::Attachment for W65C02S {
                     //
                     // STA
                     //
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 3) |
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 3)
+                    | ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3)
+                    | ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
                         self.tcu += 1;
                     }
-                    ((Instruction::STA, AddressMode::ZeroPage), 2) |
-                    ((Instruction::STA, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::STA, AddressMode::Absolute), 3) |
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 4) |
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4) |
-                    ((Instruction::STA, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 5) |
-                    ((Instruction::STA, AddressMode::ZeroPageIndirect), 4) => {
+                    ((Instruction::STA, AddressMode::ZeroPage), 2)
+                    | ((Instruction::STA, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::STA, AddressMode::Absolute), 3)
+                    | ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 4)
+                    | ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4)
+                    | ((Instruction::STA, AddressMode::ZeroPageIndexedIndirect), 5)
+                    | ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 5)
+                    | ((Instruction::STA, AddressMode::ZeroPageIndirect), 4) => {
                         self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
@@ -1598,9 +1602,9 @@ impl clock::Attachment for W65C02S {
                     //
                     // STX
                     //
-                    ((Instruction::STX, AddressMode::ZeroPage), 2) |
-                    ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3) |
-                    ((Instruction::STX, AddressMode::Absolute), 3) => {
+                    ((Instruction::STX, AddressMode::ZeroPage), 2)
+                    | ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3)
+                    | ((Instruction::STX, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.x);
                         self.tcu = 0;
                     }
@@ -1608,9 +1612,9 @@ impl clock::Attachment for W65C02S {
                     //
                     // STY
                     //
-                    ((Instruction::STY, AddressMode::ZeroPage), 2) |
-                    ((Instruction::STY, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::STY, AddressMode::Absolute), 3) => {
+                    ((Instruction::STY, AddressMode::ZeroPage), 2)
+                    | ((Instruction::STY, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::STY, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.y);
                         self.tcu = 0;
                     }
@@ -1618,10 +1622,10 @@ impl clock::Attachment for W65C02S {
                     //
                     // STZ
                     //
-                    ((Instruction::STZ, AddressMode::ZeroPage), 2) |
-                    ((Instruction::STZ, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::STZ, AddressMode::Absolute), 3) |
-                    ((Instruction::STZ, AddressMode::AbsoluteIndexedWithX), 3) => {
+                    ((Instruction::STZ, AddressMode::ZeroPage), 2)
+                    | ((Instruction::STZ, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::STZ, AddressMode::Absolute), 3)
+                    | ((Instruction::STZ, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.write(self.temp16, 0);
                         self.tcu = 0;
                     }
@@ -1645,19 +1649,19 @@ impl clock::Attachment for W65C02S {
                     //
                     // TRB
                     //
-                    ((Instruction::TRB, AddressMode::ZeroPage), 2) |
-                    ((Instruction::TRB, AddressMode::Absolute), 3) => {
+                    ((Instruction::TRB, AddressMode::ZeroPage), 2)
+                    | ((Instruction::TRB, AddressMode::Absolute), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::TRB, AddressMode::ZeroPage), 3) |
-                    ((Instruction::TRB, AddressMode::Absolute), 4) => {
+                    ((Instruction::TRB, AddressMode::ZeroPage), 3)
+                    | ((Instruction::TRB, AddressMode::Absolute), 4) => {
                         self.update_zero_flag(self.temp8 & self.a != 0);
                         self.temp8 &= !self.a;
                         self.tcu += 1;
                     }
-                    ((Instruction::TRB, AddressMode::ZeroPage), 4) |
-                    ((Instruction::TRB, AddressMode::Absolute), 5) => {
+                    ((Instruction::TRB, AddressMode::ZeroPage), 4)
+                    | ((Instruction::TRB, AddressMode::Absolute), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1665,19 +1669,19 @@ impl clock::Attachment for W65C02S {
                     //
                     // TSB
                     //
-                    ((Instruction::TSB, AddressMode::ZeroPage), 2) |
-                    ((Instruction::TSB, AddressMode::Absolute), 3) => {
+                    ((Instruction::TSB, AddressMode::ZeroPage), 2)
+                    | ((Instruction::TSB, AddressMode::Absolute), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::TSB, AddressMode::ZeroPage), 3) |
-                    ((Instruction::TSB, AddressMode::Absolute), 4) => {
+                    ((Instruction::TSB, AddressMode::ZeroPage), 3)
+                    | ((Instruction::TSB, AddressMode::Absolute), 4) => {
                         self.update_zero_flag(self.temp8 & self.a != 0);
                         self.temp8 |= self.a;
                         self.tcu += 1;
                     }
-                    ((Instruction::TSB, AddressMode::ZeroPage), 4) |
-                    ((Instruction::TSB, AddressMode::Absolute), 5) => {
+                    ((Instruction::TSB, AddressMode::ZeroPage), 4)
+                    | ((Instruction::TSB, AddressMode::Absolute), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
@@ -1737,28 +1741,27 @@ impl clock::Attachment for W65C02S {
                     //
 
                     // Fetch temp16 low
-                    ((_, AddressMode::Absolute), 1) |
-                    ((_, AddressMode::AbsoluteIndexedIndirect), 1) |
-                    ((_, AddressMode::AbsoluteIndexedWithX), 1) |
-                    ((_, AddressMode::AbsoluteIndexedWithY), 1) |
-                    ((_, AddressMode::AbsoluteIndirect), 1) |
-                    ((_, AddressMode::ZeroPage), 1) |
-                    ((_, AddressMode::ZeroPageIndexedWithX), 1) |
-                    ((_, AddressMode::ZeroPageIndexedWithY), 1) => {
+                    ((_, AddressMode::Absolute), 1)
+                    | ((_, AddressMode::AbsoluteIndexedIndirect), 1)
+                    | ((_, AddressMode::AbsoluteIndexedWithX), 1)
+                    | ((_, AddressMode::AbsoluteIndexedWithY), 1)
+                    | ((_, AddressMode::AbsoluteIndirect), 1)
+                    | ((_, AddressMode::ZeroPage), 1)
+                    | ((_, AddressMode::ZeroPageIndexedWithX), 1)
+                    | ((_, AddressMode::ZeroPageIndexedWithY), 1) => {
                         self.temp16 = self.fetch() as u16;
                         self.tcu += 1;
                     }
 
                     // Fetch temp16 high
-                    ((_, AddressMode::Absolute), 2) |
-                    ((_, AddressMode::AbsoluteIndirect), 2) => {
+                    ((_, AddressMode::Absolute), 2) | ((_, AddressMode::AbsoluteIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.tcu += 1;
                     }
 
                     // Fetch temp16 high + x
-                    ((_, AddressMode::AbsoluteIndexedWithX), 2) |
-                    ((_, AddressMode::AbsoluteIndexedIndirect), 2) => {
+                    ((_, AddressMode::AbsoluteIndexedWithX), 2)
+                    | ((_, AddressMode::AbsoluteIndexedIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.temp16 += self.x as u16;
                         self.tcu += 1;
@@ -1795,9 +1798,9 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // Fetch temp8
-                    ((_, AddressMode::ZeroPageIndexedIndirect), 1) |
-                    ((_, AddressMode::ZeroPageIndirect), 1) |
-                    ((_, AddressMode::ZeroPageIndirectIndexedWithY), 1) => {
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 1)
+                    | ((_, AddressMode::ZeroPageIndirect), 1)
+                    | ((_, AddressMode::ZeroPageIndirectIndexedWithY), 1) => {
                         self.temp8 = self.fetch();
                         self.tcu += 1;
                     }
@@ -1809,16 +1812,16 @@ impl clock::Attachment for W65C02S {
                     }
 
                     // Read temp16 low
-                    ((_, AddressMode::ZeroPageIndexedIndirect), 3) |
-                    ((_, AddressMode::ZeroPageIndirect), 2) |
-                    ((_, AddressMode::ZeroPageIndirectIndexedWithY), 2) => {
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 3)
+                    | ((_, AddressMode::ZeroPageIndirect), 2)
+                    | ((_, AddressMode::ZeroPageIndirectIndexedWithY), 2) => {
                         self.temp16 = self.read(self.temp8 as u16) as u16;
                         self.tcu += 1;
                     }
 
                     // Read temp16 high
-                    ((_, AddressMode::ZeroPageIndexedIndirect), 4) |
-                    ((_, AddressMode::ZeroPageIndirect), 3) => {
+                    ((_, AddressMode::ZeroPageIndexedIndirect), 4)
+                    | ((_, AddressMode::ZeroPageIndirect), 3) => {
                         self.temp16 |= (self.read((self.temp8 + 1) as u16) as u16) << 8;
                         self.tcu += 1;
                     }
