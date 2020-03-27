@@ -38,7 +38,7 @@ impl System {
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
             last_cycle: Instant::now(),
-            clock_period: Duration::new(0, 1000),
+            clock_period: Duration::new(0, 500),
         };
 
         sys.read_symbols(sym_path);

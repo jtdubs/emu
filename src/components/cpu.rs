@@ -604,7 +604,26 @@ impl clock::Attachment for W65C02S {
                         }
                     }
 
-                    // ADC #
+                    //
+                    // ADC
+                    //
+                    ((Instruction::ADC, AddressMode::Absolute), 3) |
+                    ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::ADC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                        let op1 = self.a as u16;
+                        let op2 = self.read(self.temp16) as u16;
+                        let sum = op1.wrapping_add(op2).wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
+                        self.a = sum as u8;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.update_carry_flag(sum > 0xff);
+                        self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
+                        self.tcu = 0;
+                    }
+
                     ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) => {
                         let op1 = self.a as u16;
                         let op2 = self.fetch() as u16;
@@ -993,7 +1012,7 @@ impl clock::Attachment for W65C02S {
 
                     // LDA (zp),y
                     ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
-                        self.a = self.read(self.temp16 + (self.y as u16));
+                        self.a = self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
@@ -1260,45 +1279,83 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    // TAX i
+                    ((Instruction::TAX, AddressMode::Implied), 1) => {
+                        self.x = self.a;
+                        self.tcu = 0;
+                    }
+
+                    // TAY i
+                    ((Instruction::TAY, AddressMode::Implied), 1) => {
+                        self.y = self.a;
+                        self.tcu = 0;
+                    }
+
+                    // TSX i
+                    ((Instruction::TSX, AddressMode::Implied), 1) => {
+                        self.x = self.s;
+                        self.tcu = 0;
+                    }
+
+                    // TXA i
+                    ((Instruction::TXA, AddressMode::Implied), 1) => {
+                        self.a = self.x;
+                        self.tcu = 0;
+                    }
+
                     // TXS i
                     ((Instruction::TXS, AddressMode::Implied), 1) => {
                         self.s = self.x;
                         self.tcu = 0;
                     }
 
-                    // Default for Absolute
-                    ((_, AddressMode::Absolute), 1) => {
+                    // TXS i
+                    ((Instruction::TYA, AddressMode::Implied), 1) => {
+                        self.a = self.y;
+                        self.tcu = 0;
+                    }
+
+                    //
+                    // Defaults based on Address Mode
+                    //
+
+                    ((_, AddressMode::Absolute), 1) |
+                    ((_, AddressMode::AbsoluteIndexedWithX), 1) |
+                    ((_, AddressMode::AbsoluteIndexedWithY), 1) |
+                    ((_, AddressMode::AbsoluteIndexedIndirect), 1) |
+                    ((_, AddressMode::AbsoluteIndirect), 1) |
+                    ((_, AddressMode::ZeroPage), 1) |
+                    ((_, AddressMode::ZeroPageIndexedWithX), 1) |
+                    ((_, AddressMode::ZeroPageIndexedWithY), 1) => {
                         self.temp16 = self.fetch() as u16;
                         self.tcu += 1;
                     }
-                    ((_, AddressMode::Absolute), 2) => {
+
+                    ((_, AddressMode::Absolute), 2) |
+                    ((_, AddressMode::AbsoluteIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.tcu += 1;
                     }
 
-                    // Default for Absolute Indexed With X
-                    ((_, AddressMode::AbsoluteIndexedWithX), 1) => {
-                        self.temp16 = self.fetch() as u16;
-                        self.tcu += 1;
-                    }
-                    ((_, AddressMode::AbsoluteIndexedWithX), 2) => {
+                    ((_, AddressMode::AbsoluteIndexedWithX), 2) |
+                    ((_, AddressMode::AbsoluteIndexedIndirect), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.temp16 += self.x as u16;
                         self.tcu += 1;
                     }
 
-                    // Default for Absolute Indexed With Y
-                    ((_, AddressMode::AbsoluteIndexedWithY), 1) => {
-                        self.temp16 = self.fetch() as u16;
-                        self.tcu += 1;
-                    }
                     ((_, AddressMode::AbsoluteIndexedWithY), 2) => {
                         self.temp16 = self.temp16 | ((self.fetch() as u16) << 8);
                         self.temp16 += self.y as u16;
                         self.tcu += 1;
                     }
 
-                    // Default for Program Counter Relative
+                    ((_, AddressMode::AbsoluteIndexedIndirect), 3) |
+                    ((_, AddressMode::AbsoluteIndirect), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+
                     ((_, AddressMode::ProgramCounterRelative), 2) => {
                         let offset = self.temp8 as i8;
                         if offset >= 0 {
@@ -1309,13 +1366,16 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // Default for Zero Page
-                    ((_, AddressMode::ZeroPage), 1) => {
-                        self.temp16 = self.fetch() as u16;
+                    ((_, AddressMode::ZeroPageIndexedWithX), 2) => {
+                        self.temp16 += self.x as u16;
                         self.tcu += 1;
                     }
 
-                    // Default for Zero Page Indirect Indexed With Y
+                    ((_, AddressMode::ZeroPageIndexedWithY), 2) => {
+                        self.temp16 += self.y as u16;
+                        self.tcu += 1;
+                    }
+
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 1) => {
                         self.temp8 = self.fetch();
                         self.tcu += 1;
@@ -1326,6 +1386,7 @@ impl clock::Attachment for W65C02S {
                     }
                     ((_, AddressMode::ZeroPageIndirectIndexedWithY), 3) => {
                         self.temp16 |= (self.read((self.temp8 + 1) as u16) as u16) << 8;
+                        self.temp16 += self.y as u16;
                         self.tcu += 1;
                     }
 
