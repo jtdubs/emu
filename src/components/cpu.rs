@@ -12,7 +12,7 @@ pub enum CPUState {
     Halt,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AddressMode {
     Absolute,                     // a
     AbsoluteIndexedIndirect,      // (a,x)
@@ -610,24 +610,18 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::ADC, AddressMode::Absolute), 3) |
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) |
                     ((Instruction::ADC, AddressMode::ZeroPage), 2) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 5) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
                         let op1 = self.a as u16;
-                        let op2 = self.read(self.temp16) as u16;
-                        let sum = op1.wrapping_add(op2).wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
-                        self.a = sum as u8;
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.update_carry_flag(sum > 0xff);
-                        self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
-                        self.tcu = 0;
-                    }
-                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) => {
-                        let op1 = self.a as u16;
-                        let op2 = self.fetch() as u16;
+                        let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch() as u16
+                        } else {
+                            self.read(self.temp16) as u16
+                        };
                         let sum = op1.wrapping_add(op2).wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                         self.a = sum as u8;
                         self.update_zero_flag(self.a);
@@ -643,18 +637,18 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::AND, AddressMode::Absolute), 3) |
                     ((Instruction::AND, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::AND, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) |
                     ((Instruction::AND, AddressMode::ZeroPage), 2) |
                     ((Instruction::AND, AddressMode::ZeroPageIndexedIndirect), 5) |
                     ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3) |
                     ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) |
                     ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
-                        self.a &= self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) => {
-                        self.a &= self.fetch();
+                        self.a &= if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
