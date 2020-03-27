@@ -1330,18 +1330,82 @@ impl clock::Attachment for W65C02S {
                     // RMB - TODO
                     //
 
-                    // ROL a
-                    ((Instruction::ROL, AddressMode::Absolute), 3) => {
+                    //
+                    // ROL
+                    //
+                    ((Instruction::ROL, AddressMode::Accumulator), 1) => {
+                        let c = self.p & 1;
+                        self.update_carry_flag(self.a & 0x80 == 0x80);
+                        self.a = (self.a << 1) | c;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+                    ((Instruction::ROL, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ROL, AddressMode::Absolute), 3) |
+                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ROL, AddressMode::Absolute), 4) => {
-                        let c = self.p & (CPUFlag::Carry as u8);
+                    ((Instruction::ROL, AddressMode::ZeroPage), 3) |
+                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::ROL, AddressMode::Absolute), 4) |
+                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 4) => {
+                        let c = self.p & 1;
                         self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 = (self.temp8 << 1) | c;
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::ROL, AddressMode::Absolute), 5) => {
+                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 5) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROL, AddressMode::ZeroPage), 4) |
+                    ((Instruction::ROL, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::ROL, AddressMode::Absolute), 5) |
+                    ((Instruction::ROL, AddressMode::AbsoluteIndexedWithX), 6) => {
+                        self.write(self.temp16, self.temp8);
+                        self.tcu = 0;
+                    }
+
+                    //
+                    // ROR
+                    //
+                    ((Instruction::ROR, AddressMode::Accumulator), 1) => {
+                        let c = self.p & 1;
+                        self.update_carry_flag(self.a & 0x01 == 0x01);
+                        self.a = (self.a >> 1) | (c << 7);
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+                    ((Instruction::ROR, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ROR, AddressMode::Absolute), 3) |
+                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROR, AddressMode::ZeroPage), 3) |
+                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::ROR, AddressMode::Absolute), 4) |
+                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 4) => {
+                        let c = self.p & 1;
+                        self.update_carry_flag(self.temp8 & 0x01 == 0x01);
+                        self.temp8 = (self.temp8 >> 1) | (c << 7);
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 5) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::ROR, AddressMode::ZeroPage), 4) |
+                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::ROR, AddressMode::Absolute), 5) |
+                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
