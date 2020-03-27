@@ -1410,7 +1410,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // RTI s
+                    //
                     ((Instruction::RTI, AddressMode::Stack), 1) => {
                         self.p = self.stack_pop();
                         self.tcu += 1;
@@ -1430,7 +1432,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // RTS s
+                    //
                     ((Instruction::RTS, AddressMode::Stack), 1) => {
                         self.fetch();
                         self.tcu += 1;
@@ -1453,7 +1457,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // SBC #
+                    //
+                    // SBC # - TODO
+                    //
                     ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) => {
                         let op1 = self.a as u16;
                         let op2 = self.fetch() as u16;
@@ -1466,61 +1472,83 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // SEC i
+                    //
                     ((Instruction::SEC, AddressMode::Implied), 1) => {
                         self.update_carry_flag(true);
                         self.tcu = 0;
                     }
 
+                    //
                     // SED i
+                    //
                     ((Instruction::SED, AddressMode::Implied), 1) => {
                         self.update_decimal_flag(true);
                         self.tcu = 0;
                     }
 
+                    //
                     // SEI i
+                    //
                     ((Instruction::SEI, AddressMode::Implied), 1) => {
                         self.update_irqb_flag(true);
                         self.tcu = 0;
                     }
 
-                    // STA zp
-                    ((Instruction::STA, AddressMode::ZeroPage), 2) => {
+                    //
+                    // SMB - TODO
+                    //
+
+                    //
+                    // STA
+                    //
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STA, AddressMode::ZeroPage), 2) |
+                    ((Instruction::STA, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::STA, AddressMode::Absolute), 3) |
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 4) |
+                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 4) |
+                    ((Instruction::STA, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::STA, AddressMode::ZeroPageIndirectIndexedWithY), 5) |
+                    ((Instruction::STA, AddressMode::ZeroPageIndirect), 4) => {
                         self.write(self.temp16, self.a);
                         self.tcu = 0;
                     }
 
-                    // STA a
-                    ((Instruction::STA, AddressMode::Absolute), 3) => {
-                        self.write(self.temp16, self.a);
-                        self.tcu = 0;
+                    //
+                    // STP
+                    //
+                    ((Instruction::STP, AddressMode::Implied), 1) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::STP, AddressMode::Implied), 2) => {
+                        self.state = CPUState::Halt;
                     }
 
-                    // STA a,x
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithX), 3) => {
-                        self.write(self.temp16, self.a);
-                        self.tcu = 0;
-                    }
-
-                    // STA a,y
-                    ((Instruction::STA, AddressMode::AbsoluteIndexedWithY), 3) => {
-                        self.write(self.temp16, self.a);
-                        self.tcu = 0;
-                    }
-
-                    // STX a
+                    //
+                    // STX a - TODO
+                    //
                     ((Instruction::STX, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.x);
                         self.tcu = 0;
                     }
 
-                    // STY a
+                    //
+                    // STY a - TODO
+                    //
                     ((Instruction::STY, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.y);
                         self.tcu = 0;
                     }
 
-                    // STZ a
+                    //
+                    // STZ a - TODO
+                    //
                     ((Instruction::STZ, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, 0);
                         self.tcu = 0;
@@ -1538,29 +1566,49 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
+                    // TRB - TODO
+                    //
+
+                    //
+                    // TSB - TODO
+                    //
+
+                    //
                     // TSX i
+                    //
                     ((Instruction::TSX, AddressMode::Implied), 1) => {
                         self.x = self.s;
                         self.tcu = 0;
                     }
 
+                    //
                     // TXA i
+                    //
                     ((Instruction::TXA, AddressMode::Implied), 1) => {
                         self.a = self.x;
                         self.tcu = 0;
                     }
 
+                    //
                     // TXS i
+                    //
                     ((Instruction::TXS, AddressMode::Implied), 1) => {
                         self.s = self.x;
                         self.tcu = 0;
                     }
 
-                    // TXS i
+                    //
+                    // TYA i
+                    //
                     ((Instruction::TYA, AddressMode::Implied), 1) => {
                         self.a = self.y;
                         self.tcu = 0;
                     }
+
+                    //
+                    // WAI - TODO
+                    //
 
                     //
                     // Defaults based on Address Mode
