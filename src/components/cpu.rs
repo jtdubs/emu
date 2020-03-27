@@ -9,6 +9,7 @@ use crate::components::clock;
 pub enum CPUState {
     Init(u8),
     Run,
+    Wait,
     Halt,
 }
 
@@ -1708,8 +1709,16 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // WAI - TODO
+                    // WAI
                     //
+                    ((Instruction::WAI, AddressMode::Implied), 1) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::WAI, AddressMode::Implied), 2) => {
+                        self.p |= CPUFlag::BRK as u8;
+                        self.state = CPUState::Wait;
+                        self.tcu = 0;
+                    }
 
                     //
                     // Defaults based on Address Mode
@@ -1815,6 +1824,19 @@ impl clock::Attachment for W65C02S {
                         info!("CPU: {:x?}", self);
                         unimplemented!("Unimplemented opcode: {:?}, {:?}", self.ir, self.tcu);
                     }
+                }
+            }
+            CPUState::Wait => {
+                if (self.p & (CPUFlag::IRQB as u8) == 0)
+                    && self
+                        .attachments
+                        .iter()
+                        .any(|(_, _, a)| a.lock().unwrap().has_interrupt())
+                {
+                    debug!("Interrupt!");
+                    self.ir = (Instruction::BRK, AddressMode::Implied);
+                    self.tcu = 1;
+                    self.state = CPUState::Run;
                 }
             }
             CPUState::Halt => {}
