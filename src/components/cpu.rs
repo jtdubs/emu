@@ -557,6 +557,16 @@ impl W65C02S {
             self.p &= !(CPUFlag::IRQB as u8);
         }
     }
+
+    fn branch(&mut self, flag: CPUFlag, val: bool) {
+        self.temp8 = self.fetch();
+        let f = flag as u8;
+        if self.p & f == (if val { f } else { 0 }) {
+            self.tcu += 1;
+        } else {
+            self.tcu = 0;
+        }
+    }
 }
 
 impl clock::Attachment for W65C02S {
@@ -689,64 +699,46 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
+                    // BBR: TODO
+                    //
+
+                    //
+                    // BBS: TODO
+                    //
+
                     // BCC r
                     ((Instruction::BCC, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Carry as u8) == 0 {
-                            self.tcu += 1;
-                        } else {
-                            self.tcu = 0;
-                        }
+                        self.branch(CPUFlag::Carry, false);
                     }
 
                     // BCS r
                     ((Instruction::BCS, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Carry as u8) == 0 {
-                            self.tcu = 0;
-                        } else {
-                            self.tcu += 1;
-                        }
+                        self.branch(CPUFlag::Carry, true);
                     }
 
                     // BEQ r
                     ((Instruction::BEQ, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Zero as u8) == 0 {
-                            self.tcu = 0;
-                        } else {
-                            self.tcu += 1;
-                        }
+                        self.branch(CPUFlag::Zero, true);
                     }
+
+                    //
+                    // BIT: TODO
+                    //
 
                     // BMI r
                     ((Instruction::BMI, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Negative as u8) == 0 {
-                            self.tcu = 0;
-                        } else {
-                            self.tcu += 1;
-                        }
+                        self.branch(CPUFlag::Negative, true);
                     }
 
                     // BNE r
                     ((Instruction::BNE, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Zero as u8) == 0 {
-                            self.tcu += 1;
-                        } else {
-                            self.tcu = 0;
-                        }
+                        self.branch(CPUFlag::Zero, false);
                     }
 
                     // BPL r
                     ((Instruction::BPL, AddressMode::ProgramCounterRelative), 1) => {
-                        self.temp8 = self.fetch();
-                        if self.p & (CPUFlag::Negative as u8) == 0 {
-                            self.tcu += 1;
-                        } else {
-                            self.tcu = 0;
-                        }
+                        self.branch(CPUFlag::Negative, false);
                     }
 
                     // BRK i
