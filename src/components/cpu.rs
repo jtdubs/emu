@@ -617,15 +617,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // ADC
                     //
+                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::ADC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
                     ((Instruction::ADC, AddressMode::Absolute), 3) |
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::ADC, AddressMode::ZeroPage), 2) |
                     ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) |
-                    ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                    ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::ADC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
                         let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch() as u16
@@ -644,15 +644,15 @@ impl clock::Attachment for W65C02S {
                     //
                     // AND
                     //
+                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::AND, AddressMode::ZeroPage), 2) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3) |
                     ((Instruction::AND, AddressMode::Absolute), 3) |
                     ((Instruction::AND, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::AND, AddressMode::AbsoluteIndexedWithY), 3) |
-                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) |
-                    ((Instruction::AND, AddressMode::ZeroPage), 2) |
                     ((Instruction::AND, AddressMode::ZeroPageIndexedIndirect), 5) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) |
-                    ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                    ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) => {
                         self.a &= if self.ir.1 == AddressMode::ImmediateAddressing {
                             self.fetch()
                         } else {
@@ -674,38 +674,74 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-                    ((Instruction::ASL, AddressMode::Absolute), 3) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 3) |
                     ((Instruction::ASL, AddressMode::ZeroPage), 2) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 3) => {
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ASL, AddressMode::Absolute), 3) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::Absolute), 4) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 4) |
                     ((Instruction::ASL, AddressMode::ZeroPage), 3) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 4) => {
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::ASL, AddressMode::Absolute), 4) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 <<= 1;
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::Absolute), 5) |
-                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 5) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 5) => {
+                        self.tcu += 1;
+                    }
                     ((Instruction::ASL, AddressMode::ZeroPage), 4) |
-                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 5) => {
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::ASL, AddressMode::Absolute), 5) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 6) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
                     //
-                    // BBR: TODO
+                    // BBR / BBS
                     //
-
-                    //
-                    // BBS: TODO
-                    //
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 1) |
+                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 1) => {
+                        self.temp16 = self.fetch() as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 2) |
+                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 2) => {
+                        self.temp8 = self.fetch();
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BBS(_), AddressMode::ProgramCounterRelative), 3) |
+                    ((Instruction::BBR(_), AddressMode::ProgramCounterRelative), 3) => {
+                        self.temp16 = self.read(self.temp16) as u16;
+                        self.tcu += 1;
+                    }
+                    ((Instruction::BBS(n), AddressMode::ProgramCounterRelative), 4) => {
+                        if (self.temp16 >> n) & 1 == 1 {
+                            let offset = self.temp8 as i8;
+                            if offset >= 0 {
+                                self.pc += offset as u16;
+                            } else {
+                                self.pc -= offset.abs() as u16;
+                            }
+                        }
+                        self.tcu = 0;
+                    }
+                    ((Instruction::BBR(n), AddressMode::ProgramCounterRelative), 4) => {
+                        if (self.temp16 >> n) & 1 == 0 {
+                            let offset = self.temp8 as i8;
+                            if offset >= 0 {
+                                self.pc += offset as u16;
+                            } else {
+                                self.pc -= offset.abs() as u16;
+                            }
+                        }
+                        self.tcu = 0;
+                    }
 
                     // BCC r
                     ((Instruction::BCC, AddressMode::ProgramCounterRelative), 1) => {
@@ -741,6 +777,10 @@ impl clock::Attachment for W65C02S {
                         self.branch(CPUFlag::Negative, false);
                     }
 
+                    //
+                    // BRA: TODO
+                    //
+
                     // BRK i
                     ((Instruction::BRK, AddressMode::Implied), 1) => {
                         self.tcu += 1;
@@ -772,6 +812,16 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::BRK, _), 6) => {
                         self.pc = self.pc | ((self.read(0xFFFF) as u16) << 8);
                         self.tcu = 0;
+                    }
+
+                    // BVC r
+                    ((Instruction::BVC, AddressMode::ProgramCounterRelative), 1) => {
+                        self.branch(CPUFlag::Overflow, false);
+                    }
+
+                    // BVS r
+                    ((Instruction::BVS, AddressMode::ProgramCounterRelative), 1) => {
+                        self.branch(CPUFlag::Overflow, true);
                     }
 
                     // CLC i
