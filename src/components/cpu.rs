@@ -1531,16 +1531,20 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // STX a - TODO
+                    // STX a
                     //
+                    ((Instruction::STX, AddressMode::ZeroPage), 2) |
+                    ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3) |
                     ((Instruction::STX, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.x);
                         self.tcu = 0;
                     }
 
                     //
-                    // STY a - TODO
+                    // STY a
                     //
+                    ((Instruction::STY, AddressMode::ZeroPage), 2) |
+                    ((Instruction::STY, AddressMode::ZeroPageIndexedWithX), 3) |
                     ((Instruction::STY, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.y);
                         self.tcu = 0;
