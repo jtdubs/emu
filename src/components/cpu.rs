@@ -935,31 +935,42 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // DEC A - TODO
+                    //
+                    // DEC
+                    //
                     ((Instruction::DEC, AddressMode::Accumulator), 1) => {
                         self.a = self.a.wrapping_sub(1);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-
-                    // DEC a
-                    ((Instruction::DEC, AddressMode::Absolute), 3) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::DEC, AddressMode::Absolute), 3) |
+                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::DEC, AddressMode::Absolute), 4) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 3) |
+                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::DEC, AddressMode::Absolute), 4) |
+                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.temp8 = self.temp8.wrapping_sub(1);
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::DEC, AddressMode::Absolute), 5) => {
+                    ((Instruction::DEC, AddressMode::ZeroPage), 4) |
+                    ((Instruction::DEC, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::DEC, AddressMode::Absolute), 5) |
+                    ((Instruction::DEC, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
+                    //
                     // DEX i
+                    //
                     ((Instruction::DEX, AddressMode::Implied), 1) => {
                         self.x = self.x.wrapping_sub(1);
                         self.update_zero_flag(self.x);
@@ -967,7 +978,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // DEY i
+                    //
                     ((Instruction::DEY, AddressMode::Implied), 1) => {
                         self.y = self.y.wrapping_sub(1);
                         self.update_zero_flag(self.y);
@@ -975,48 +988,65 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // EOR #
-                    ((Instruction::EOR, AddressMode::ImmediateAddressing), 1) => {
-                        self.a ^= self.fetch();
+                    //
+                    // EOR
+                    //
+                    ((Instruction::EOR, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::EOR, AddressMode::ZeroPage), 2) |
+                    ((Instruction::EOR, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::EOR, AddressMode::Absolute), 3) |
+                    ((Instruction::EOR, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::EOR, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::EOR, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::EOR, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::EOR, AddressMode::ZeroPageIndirect), 4) => {
+                        self.a ^= if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
 
-                    // EOR a
-                    ((Instruction::EOR, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.read(self.temp16);
-                        self.a ^= self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-
-                    // INC A
+                    //
+                    // INC
+                    //
                     ((Instruction::INC, AddressMode::Accumulator), 1) => {
                         self.a = self.a.wrapping_add(1);
-                        self.update_zero_flag(self.temp8);
-                        self.update_negative_flag(self.temp8);
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-
-                    // INC a
-                    ((Instruction::INC, AddressMode::Absolute), 3) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::INC, AddressMode::Absolute), 3) |
+                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::INC, AddressMode::Absolute), 4) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 3) |
+                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::INC, AddressMode::Absolute), 4) |
+                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 4) => {
                         self.temp8 = self.temp8.wrapping_add(1);
                         self.update_zero_flag(self.temp8);
                         self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::INC, AddressMode::Absolute), 5) => {
+                    ((Instruction::INC, AddressMode::ZeroPage), 4) |
+                    ((Instruction::INC, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::INC, AddressMode::Absolute), 5) |
+                    ((Instruction::INC, AddressMode::AbsoluteIndexedWithX), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
+                    //
                     // INX i
+                    //
                     ((Instruction::INX, AddressMode::Implied), 1) => {
                         self.x = self.x.wrapping_add(1);
                         self.update_zero_flag(self.x);
@@ -1024,7 +1054,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // INY i
+                    //
                     ((Instruction::INY, AddressMode::Implied), 1) => {
                         self.y = self.y.wrapping_add(1);
                         self.update_zero_flag(self.y);
@@ -1032,7 +1064,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // JMP a
+                    //
+                    // JMP a - TODO
+                    //
                     ((Instruction::JMP, AddressMode::Absolute), 3) => {
                         self.pc = self.temp16;
                         self.tcu = 0;
