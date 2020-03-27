@@ -1072,7 +1072,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // JSR a
+                    //
                     ((Instruction::JSR, AddressMode::Absolute), 1) => {
                         self.temp16 = self.fetch() as u16;
                         self.tcu += 1;
@@ -1095,92 +1097,138 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // LDA #
-                    ((Instruction::LDA, AddressMode::ImmediateAddressing), 1) => {
-                        self.a = self.fetch();
+                    //
+                    // LDA
+                    //
+                    ((Instruction::LDA, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::LDA, AddressMode::ZeroPage), 2) |
+                    ((Instruction::LDA, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::LDA, AddressMode::Absolute), 3) |
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::LDA, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::LDA, AddressMode::ZeroPageIndirect), 4) => {
+                        self.a = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
 
-                    // LDA a
-                    ((Instruction::LDA, AddressMode::Absolute), 3) => {
-                        self.a = self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-
-                    // LDA a,x
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithX), 3) => {
-                        self.a = self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-
-                    // LDA a,y
-                    ((Instruction::LDA, AddressMode::AbsoluteIndexedWithY), 3) => {
-                        self.a = self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-
-                    // LDA (zp),y
-                    ((Instruction::LDA, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
-                        self.a = self.read(self.temp16);
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu = 0;
-                    }
-
-                    // LDX #
-                    ((Instruction::LDX, AddressMode::ImmediateAddressing), 1) => {
-                        self.x = self.fetch();
-                        self.update_zero_flag(self.x);
-                        self.update_negative_flag(self.x);
-                        self.tcu = 0;
-                    }
-
-                    // LDX a
-                    ((Instruction::LDX, AddressMode::Absolute), 3) => {
-                        self.x = self.read(self.temp16);
-                        self.update_zero_flag(self.x);
-                        self.update_negative_flag(self.x);
-                        self.tcu = 0;
-                    }
-
-                    // LDX a,y
+                    //
+                    // LDX
+                    //
+                    ((Instruction::LDX, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::LDX, AddressMode::ZeroPage), 2) |
+                    ((Instruction::LDX, AddressMode::ZeroPageIndexedWithY), 3) |
+                    ((Instruction::LDX, AddressMode::Absolute), 3) |
                     ((Instruction::LDX, AddressMode::AbsoluteIndexedWithY), 3) => {
-                        self.x = self.read(self.temp16);
+                        self.x = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
                         self.update_zero_flag(self.x);
                         self.update_negative_flag(self.x);
                         self.tcu = 0;
                     }
 
-                    // LDY #
-                    ((Instruction::LDY, AddressMode::ImmediateAddressing), 1) => {
-                        self.y = self.fetch();
-                        self.update_zero_flag(self.y);
-                        self.update_negative_flag(self.y);
+                    //
+                    // LDY
+                    //
+                    ((Instruction::LDY, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::LDY, AddressMode::ZeroPage), 2) |
+                    ((Instruction::LDY, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::LDY, AddressMode::Absolute), 3) |
+                    ((Instruction::LDY, AddressMode::AbsoluteIndexedWithX), 3) => {
+                        self.y = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
+                        self.update_zero_flag(self.x);
+                        self.update_negative_flag(self.x);
                         self.tcu = 0;
                     }
 
-                    // LDY a
-                    ((Instruction::LDY, AddressMode::Absolute), 3) => {
-                        self.y = self.read(self.temp16);
-                        self.update_zero_flag(self.y);
-                        self.update_negative_flag(self.y);
+                    //
+                    // LSR
+                    //
+                    ((Instruction::LSR, AddressMode::Accumulator), 1) => {
+                        self.update_carry_flag(self.a & 0x01 == 0x01);
+                        self.a >>= 1;
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+                    ((Instruction::LSR, AddressMode::ZeroPage), 2) |
+                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::LSR, AddressMode::Absolute), 3) |
+                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 3) => {
+                        self.temp8 = self.read(self.temp16);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::LSR, AddressMode::ZeroPage), 3) |
+                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 4) |
+                    ((Instruction::LSR, AddressMode::Absolute), 4) |
+                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 4) => {
+                        self.update_carry_flag(self.temp8 & 0x01 == 0x01);
+                        self.temp8 >>= 1;
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
+                        self.tcu += 1;
+                    }
+                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 5) => {
+                        self.tcu += 1;
+                    }
+                    ((Instruction::LSR, AddressMode::ZeroPage), 4) |
+                    ((Instruction::LSR, AddressMode::ZeroPageIndexedWithX), 5) |
+                    ((Instruction::LSR, AddressMode::Absolute), 5) |
+                    ((Instruction::LSR, AddressMode::AbsoluteIndexedWithX), 6) => {
+                        self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
 
+                    //
                     // NOP i
+                    //
                     ((Instruction::NOP, AddressMode::Implied), 1) => {
                         self.tcu = 0;
                     }
 
+                    //
+                    // ORA
+                    //
+                    ((Instruction::ORA, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::ORA, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ORA, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ORA, AddressMode::Absolute), 3) |
+                    ((Instruction::ORA, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::ORA, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::ORA, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::ORA, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::ORA, AddressMode::ZeroPageIndirect), 4) => {
+                        self.a |= if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
+                        self.update_zero_flag(self.a);
+                        self.update_negative_flag(self.a);
+                        self.tcu = 0;
+                    }
+
+                    //
                     // PHA s
+                    //
                     ((Instruction::PHA, AddressMode::Stack), 1) => {
                         self.stack_push(self.a);
                         self.tcu += 1;
@@ -1189,7 +1237,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PHP s
+                    //
                     ((Instruction::PHP, AddressMode::Stack), 1) => {
                         self.stack_push(self.p);
                         self.tcu += 1;
@@ -1198,7 +1248,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PHX s
+                    //
                     ((Instruction::PHX, AddressMode::Stack), 1) => {
                         self.stack_push(self.x);
                         self.tcu += 1;
@@ -1207,7 +1259,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PHY s
+                    //
                     ((Instruction::PHY, AddressMode::Stack), 1) => {
                         self.stack_push(self.y);
                         self.tcu += 1;
@@ -1216,7 +1270,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PLA s
+                    //
                     ((Instruction::PLA, AddressMode::Stack), 1) => {
                         self.a = self.stack_pop();
                         self.tcu += 1;
@@ -1228,7 +1284,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PLP s
+                    //
                     ((Instruction::PLP, AddressMode::Stack), 1) => {
                         self.p = self.stack_pop();
                         self.tcu += 1;
@@ -1240,7 +1298,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PLX s
+                    //
                     ((Instruction::PLX, AddressMode::Stack), 1) => {
                         self.x = self.stack_pop();
                         self.tcu += 1;
@@ -1252,7 +1312,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // PLY s
+                    //
                     ((Instruction::PLY, AddressMode::Stack), 1) => {
                         self.y = self.stack_pop();
                         self.tcu += 1;
@@ -1263,6 +1325,10 @@ impl clock::Attachment for W65C02S {
                     ((Instruction::PLY, AddressMode::Stack), 3) => {
                         self.tcu = 0;
                     }
+
+                    //
+                    // RMB - TODO
+                    //
 
                     // ROL a
                     ((Instruction::ROL, AddressMode::Absolute), 3) => {
