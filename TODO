@@ -1,5 +1,7 @@
 - Benchmarking and speed improvements
     - Less locking??  There's no actual multi-threading going on here...
+    - Add Durations for some number of cycles and do a moving average of cycle durations...
 - Better command-line invocation
 - Better error handling (less panics)
 - More opcodes
+- Validate cycle counts against second source that includes the 65C02-specific opcodes

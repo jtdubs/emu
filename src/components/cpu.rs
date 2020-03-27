@@ -625,7 +625,6 @@ impl clock::Attachment for W65C02S {
                         self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
                         self.tcu = 0;
                     }
-
                     ((Instruction::ADC, AddressMode::ImmediateAddressing), 1) => {
                         let op1 = self.a as u16;
                         let op2 = self.fetch() as u16;
@@ -638,17 +637,24 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // AND #
-                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) => {
-                        self.a &= self.fetch();
+                    //
+                    // AND
+                    //
+                    ((Instruction::AND, AddressMode::Absolute), 3) |
+                    ((Instruction::AND, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::AND, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::AND, AddressMode::ZeroPage), 2) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndirect), 4) |
+                    ((Instruction::AND, AddressMode::ZeroPageIndirectIndexedWithY), 4) => {
+                        self.a &= self.read(self.temp16);
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-
-                    // AND a
-                    ((Instruction::AND, AddressMode::Absolute), 3) => {
-                        self.a &= self.read(self.temp16);
+                    ((Instruction::AND, AddressMode::ImmediateAddressing), 1) => {
+                        self.a &= self.fetch();
                         self.update_zero_flag(self.a);
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
