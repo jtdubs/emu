@@ -1499,17 +1499,29 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // SBC # - TODO
+                    // SBC
                     //
-                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) => {
+                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::SBC, AddressMode::ZeroPage), 2) |
+                    ((Instruction::SBC, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::SBC, AddressMode::Absolute), 3) |
+                    ((Instruction::SBC, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::SBC, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::SBC, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
-                        let op2 = self.fetch() as u16;
-                        let diff = op1.wrapping_sub(op2).wrapping_sub(1 - ((self.p & (CPUFlag::Carry as u8)) as u16));
+                        let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch() as u16
+                        } else {
+                            self.read(self.temp16) as u16
+                        };
+                        let diff = op1.wrapping_sub(op2).wrapping_sub(1u16.wrapping_sub((self.p & (CPUFlag::Carry as u8)) as u16));
                         self.a = diff as u8;
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
-                        // TODO self.update_carry_flag(sum > 0xff);
-                        // TODO self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
+                        // TODO self.update_carry_flag(??);
+                        // TODO self.update_overflow_flag(??);
                         self.tcu = 0;
                     }
 
