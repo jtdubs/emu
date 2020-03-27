@@ -1531,7 +1531,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // STX a
+                    // STX
                     //
                     ((Instruction::STX, AddressMode::ZeroPage), 2) |
                     ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3) |
@@ -1541,7 +1541,7 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // STY a
+                    // STY
                     //
                     ((Instruction::STY, AddressMode::ZeroPage), 2) |
                     ((Instruction::STY, AddressMode::ZeroPageIndexedWithX), 3) |
@@ -1551,9 +1551,12 @@ impl clock::Attachment for W65C02S {
                     }
 
                     //
-                    // STZ a - TODO
+                    // STZ
                     //
-                    ((Instruction::STZ, AddressMode::Absolute), 3) => {
+                    ((Instruction::ROR, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ROR, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::ROR, AddressMode::Absolute), 3) |
+                    ((Instruction::ROR, AddressMode::AbsoluteIndexedWithX), 3) => {
                         self.write(self.temp16, 0);
                         self.tcu = 0;
                     }
