@@ -654,7 +654,9 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // ASL A
+                    //
+                    // ASL
+                    //
                     ((Instruction::ASL, AddressMode::Accumulator), 1) => {
                         self.update_carry_flag(self.a & 0x80 == 0x80);
                         self.a <<= 1;
@@ -662,37 +664,27 @@ impl clock::Attachment for W65C02S {
                         self.update_negative_flag(self.a);
                         self.tcu = 0;
                     }
-
-                    // ASL a
-                    ((Instruction::ASL, AddressMode::Absolute), 3) => {
+                    ((Instruction::ASL, AddressMode::Absolute), 3) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::ASL, AddressMode::ZeroPage), 2) |
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 3) => {
                         self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::Absolute), 4) => {
+                    ((Instruction::ASL, AddressMode::Absolute), 4) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 4) |
+                    ((Instruction::ASL, AddressMode::ZeroPage), 3) |
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 4) => {
                         self.update_carry_flag(self.temp8 & 0x80 == 0x80);
                         self.temp8 <<= 1;
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
+                        self.update_zero_flag(self.temp8);
+                        self.update_negative_flag(self.temp8);
                         self.tcu += 1;
                     }
-                    ((Instruction::ASL, AddressMode::Absolute), 5) => {
-                        self.write(self.temp16, self.temp8);
-                        self.tcu = 0;
-                    }
-
-                    // ASL zp
-                    ((Instruction::ASL, AddressMode::ZeroPage), 2) => {
-                        self.temp8 = self.read(self.temp16);
-                        self.tcu += 1;
-                    }
-                    ((Instruction::ASL, AddressMode::ZeroPage), 3) => {
-                        self.update_carry_flag(self.temp8 & 0x80 == 0x80);
-                        self.temp8 <<= 1;
-                        self.update_zero_flag(self.a);
-                        self.update_negative_flag(self.a);
-                        self.tcu += 1;
-                    }
-                    ((Instruction::ASL, AddressMode::ZeroPage), 4) => {
+                    ((Instruction::ASL, AddressMode::Absolute), 5) |
+                    ((Instruction::ASL, AddressMode::AbsoluteIndexedWithX), 5) |
+                    ((Instruction::ASL, AddressMode::ZeroPage), 4) |
+                    ((Instruction::ASL, AddressMode::ZeroPageIndexedWithX), 5) => {
                         self.write(self.temp16, self.temp8);
                         self.tcu = 0;
                     }
