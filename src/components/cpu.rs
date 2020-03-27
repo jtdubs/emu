@@ -743,17 +743,23 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // BCC r
+                    //
+                    // BCC
+                    //
                     ((Instruction::BCC, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Carry, false);
                     }
 
+                    //
                     // BCS r
+                    //
                     ((Instruction::BCS, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Carry, true);
                     }
 
+                    //
                     // BEQ r
+                    //
                     ((Instruction::BEQ, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Zero, true);
                     }
@@ -762,17 +768,23 @@ impl clock::Attachment for W65C02S {
                     // BIT: TODO
                     //
 
+                    //
                     // BMI r
+                    //
                     ((Instruction::BMI, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Negative, true);
                     }
 
+                    //
                     // BNE r
+                    //
                     ((Instruction::BNE, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Zero, false);
                     }
 
+                    //
                     // BPL r
+                    //
                     ((Instruction::BPL, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Negative, false);
                     }
@@ -781,17 +793,17 @@ impl clock::Attachment for W65C02S {
                     // BRA: TODO
                     //
 
-                    // BRK i
+                    //
+                    // BRK
+                    //
                     ((Instruction::BRK, AddressMode::Implied), 1) => {
                         self.tcu += 1;
                     }
-                    // BRK s
                     ((Instruction::BRK, AddressMode::Stack), 1) => {
                         self.p |= CPUFlag::BRK as u8;
                         self.fetch();
                         self.tcu += 1;
                     }
-                    // BRK i/s
                     ((Instruction::BRK, _), 2) => {
                         self.stack_push((self.pc >> 8) as u8);
                         self.tcu += 1;
@@ -814,53 +826,70 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
+                    //
                     // BVC r
+                    //
                     ((Instruction::BVC, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Overflow, false);
                     }
 
+                    //
                     // BVS r
+                    //
                     ((Instruction::BVS, AddressMode::ProgramCounterRelative), 1) => {
                         self.branch(CPUFlag::Overflow, true);
                     }
 
+                    //
                     // CLC i
+                    //
                     ((Instruction::CLC, AddressMode::Implied), 1) => {
                         self.update_carry_flag(false);
                         self.tcu = 0;
                     }
 
+                    //
                     // CLD i
+                    //
                     ((Instruction::CLD, AddressMode::Implied), 1) => {
                         self.update_decimal_flag(false);
                         self.tcu = 0;
                     }
 
+                    //
                     // CLI i
+                    //
                     ((Instruction::CLI, AddressMode::Implied), 1) => {
                         self.update_irqb_flag(false);
                         self.tcu = 0;
                     }
 
+                    //
                     // CLV i
+                    //
                     ((Instruction::CLV, AddressMode::Implied), 1) => {
                         self.update_overflow_flag(false);
                         self.tcu = 0;
                     }
 
-                    // CMP #
-                    ((Instruction::CMP, AddressMode::ImmediateAddressing), 1) => {
-                        let val = self.fetch();
-                        self.update_carry_flag(self.a >= val);
-                        let val = self.a.wrapping_sub(val);
-                        self.update_zero_flag(val);
-                        self.update_negative_flag(val);
-                        self.tcu = 0;
-                    }
+                    //
+                    // CMP
+                    //
+                    ((Instruction::CMP, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::CMP, AddressMode::ZeroPage), 2) |
+                    ((Instruction::CMP, AddressMode::ZeroPageIndexedWithX), 3) |
+                    ((Instruction::CMP, AddressMode::Absolute), 3) |
+                    ((Instruction::CMP, AddressMode::AbsoluteIndexedWithX), 3) |
+                    ((Instruction::CMP, AddressMode::AbsoluteIndexedWithY), 3) |
+                    ((Instruction::CMP, AddressMode::ZeroPageIndexedIndirect), 5) |
+                    ((Instruction::CMP, AddressMode::ZeroPageIndirectIndexedWithY), 4) |
+                    ((Instruction::CMP, AddressMode::ZeroPageIndirect), 4) => {
+                        self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
 
-                    // CMP a
-                    ((Instruction::CMP, AddressMode::Absolute), 3) => {
-                        self.temp8 = self.read(self.temp16);
                         self.update_carry_flag(self.a >= self.temp8);
                         let val = self.a.wrapping_sub(self.temp8);
                         self.update_zero_flag(val);
@@ -868,27 +897,45 @@ impl clock::Attachment for W65C02S {
                         self.tcu = 0;
                     }
 
-                    // CPX #
-                    ((Instruction::CPX, AddressMode::ImmediateAddressing), 1) => {
-                        let val = self.fetch();
-                        self.update_carry_flag(self.x >= val);
-                        let val = self.x.wrapping_sub(val);
+                    //
+                    // CPX
+                    //
+                    ((Instruction::CPX, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::CPX, AddressMode::ZeroPage), 2) |
+                    ((Instruction::CPX, AddressMode::Absolute), 3) => {
+                        self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
+                        self.update_carry_flag(self.x >= self.temp8);
+                        let val = self.x.wrapping_sub(self.temp8);
                         self.update_zero_flag(val);
                         self.update_negative_flag(val);
                         self.tcu = 0;
                     }
 
-                    // CPY #
-                    ((Instruction::CPY, AddressMode::ImmediateAddressing), 1) => {
-                        let val = self.fetch();
-                        self.update_carry_flag(self.y >= val);
-                        let val = self.y.wrapping_sub(val);
+                    //
+                    // CPY
+                    //
+                    ((Instruction::CPY, AddressMode::ImmediateAddressing), 1) |
+                    ((Instruction::CPY, AddressMode::ZeroPage), 2) |
+                    ((Instruction::CPY, AddressMode::Absolute), 3) => {
+                        self.temp8 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
+                        self.update_carry_flag(self.y >= self.temp8);
+                        let val = self.y.wrapping_sub(self.temp8);
                         self.update_zero_flag(val);
                         self.update_negative_flag(val);
                         self.tcu = 0;
                     }
 
-                    // DEC A
+                    // DEC A - TODO
                     ((Instruction::DEC, AddressMode::Accumulator), 1) => {
                         self.a = self.a.wrapping_sub(1);
                         self.update_zero_flag(self.a);
