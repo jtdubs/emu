@@ -455,13 +455,10 @@ impl W65C02S {
         self.attachments.push((addr_mask, addr_val, member));
     }
 
-    fn with_attachment<F, R>(&self, addr: u16, f: F) -> R
-    where
-        F: Fn(u16, &Rc<RefCell<dyn Attachment>>) -> R,
-    {
+    fn get_attachment(&self, addr: u16) -> (u16, &Rc<RefCell<dyn Attachment>>) {
         for (mask, val, attachment) in &self.attachments {
             if addr & mask == *val {
-                return f(addr & !mask, &attachment);
+                return (addr & !mask, &attachment);
             }
         }
 
@@ -469,17 +466,20 @@ impl W65C02S {
     }
 
     pub fn peek(&self, addr: u16) -> u8 {
-        self.with_attachment(addr, |a, m| m.borrow().peek(a))
+        let (masked_addr, attachment) = self.get_attachment(addr);
+        attachment.borrow().peek(masked_addr)
     }
 
     fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
-        self.with_attachment(addr, |a, m| m.borrow().read(a))
+        let (masked_addr, attachment) = self.get_attachment(addr);
+        attachment.borrow().read(masked_addr)
     }
 
     fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
-        self.with_attachment(addr, |a, m| m.borrow_mut().write(a, data))
+        let (masked_addr, attachment) = self.get_attachment(addr);
+        attachment.borrow_mut().write(masked_addr, data)
     }
 
     fn stack_push(&mut self, val: u8) {
