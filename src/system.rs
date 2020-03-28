@@ -189,9 +189,10 @@ impl System {
                 let (line1, line2) = dsp.get_output();
                 write!(
                     stdout,
-                    "│{}│\r\n│{}│\r\n\n> {:?}ns{}\r{}",
+                    "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns){}\r{}",
                     line1,
                     line2,
+                    1000.0 / (self.avg_clock_period_nanos / 1000000) as f32,
                     self.avg_clock_period_nanos / 1000000,
                     termion::clear::AfterCursor,
                     termion::cursor::Up(3),
