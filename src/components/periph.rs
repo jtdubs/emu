@@ -100,7 +100,7 @@ enum Interrupts {
 }
 
 impl clock::Attachment for W65C22 {
-    fn cycle(&mut self) {
+    fn cycle(&mut self) -> bool {
         if self.t1c > 0 {
             self.t1c -= 1;
         } else {
@@ -127,6 +127,8 @@ impl clock::Attachment for W65C22 {
             }
             // TODO: if T1 is set in IER, raise the interrupt
         }
+
+        self.ifr.get() & self.ier != 0
     }
 }
 
@@ -307,9 +309,5 @@ impl cpu::Attachment for W65C22 {
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
-    }
-
-    fn has_interrupt(&self) -> bool {
-        self.ifr.get() & self.ier != 0
     }
 }

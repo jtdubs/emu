@@ -5,9 +5,7 @@ TODO:
 
 
 Optimizations:
-- Allow periphs to push interrupts to CPU rather than polling each cycle
 - Get rid of RefCell's by changing from a digraph to a tree.  Needs "clocked attachment" concept.  Maybe.
-- Cycle returns interrupt bool
 
 
 Timing history:

@@ -89,7 +89,8 @@ impl System {
             self.epoch_start = now;
         }
 
-        self.clk.cycle();
+        let interrupt = self.clk.cycle();
+        self.cpu.borrow_mut().set_interrupt(interrupt);
     }
 
     pub fn step_over(&mut self) {

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 pub trait Attachment {
-    fn cycle(&mut self);
+    fn cycle(&mut self) -> bool;
 }
 
 pub struct Clock {
@@ -27,9 +27,11 @@ impl Clock {
         self.attachments.push(attachment);
     }
 
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self) -> bool {
+        let mut result = false;
         for a in &self.attachments {
-            a.borrow_mut().cycle();
+            result |= a.borrow_mut().cycle();
         }
+        result
     }
 }

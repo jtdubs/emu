@@ -29,8 +29,4 @@ impl cpu::Attachment for RAM {
         debug!("W @ {:04x} = {:02x}", addr, data);
         self.mem[addr as usize] = data;
     }
-
-    fn has_interrupt(&self) -> bool {
-        false
-    }
 }

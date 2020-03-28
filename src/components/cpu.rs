@@ -389,8 +389,6 @@ pub trait Attachment {
     fn peek(&self, addr: u16) -> u8;
     fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, data: u8);
-
-    fn has_interrupt(&self) -> bool;
 }
 
 pub struct W65C02S {
@@ -406,6 +404,7 @@ pub struct W65C02S {
     pub s: u8,           // stack pointer register
     pub temp8: u8,       // temporary storage
     pub temp16: u16,     // temporary storage
+    pub interrupt: bool, // an interrupt is available
 }
 
 impl fmt::Debug for W65C02S {
@@ -441,7 +440,12 @@ impl W65C02S {
             s: 0,
             temp8: 0,
             temp16: 0,
+            interrupt: false
         }
+    }
+
+    pub fn set_interrupt(&mut self, interrupt: bool) {
+        self.interrupt = interrupt;
     }
 
     pub fn is_halted(&self) -> bool {
@@ -562,7 +566,7 @@ impl W65C02S {
 }
 
 impl clock::Attachment for W65C02S {
-    fn cycle(&mut self) {
+    fn cycle(&mut self) -> bool {
         debug!("CPU: {:x?}", self);
 
         match self.state {
@@ -581,12 +585,7 @@ impl clock::Attachment for W65C02S {
                 match (&self.ir, &self.tcu) {
                     // First step is always to fetch the next instruction
                     (_, 0) => {
-                        if (self.p & (CPUFlag::IRQB as u8) == 0)
-                            && self
-                                .attachments
-                                .iter()
-                                .any(|(_, _, a)| a.borrow().has_interrupt())
-                        {
+                        if (self.p & (CPUFlag::IRQB as u8) == 0) && self.interrupt {
                             debug!("Interrupt!");
                             self.ir = (Instruction::BRK, AddressMode::Implied);
                             self.tcu += 1;
@@ -1833,12 +1832,7 @@ impl clock::Attachment for W65C02S {
                 }
             }
             CPUState::Wait => {
-                if (self.p & (CPUFlag::IRQB as u8) == 0)
-                    && self
-                        .attachments
-                        .iter()
-                        .any(|(_, _, a)| a.borrow().has_interrupt())
-                {
+                if (self.p & (CPUFlag::IRQB as u8) == 0) && self.interrupt {
                     debug!("Interrupt!");
                     self.ir = (Instruction::BRK, AddressMode::Implied);
                     self.tcu = 1;
@@ -1847,5 +1841,7 @@ impl clock::Attachment for W65C02S {
             }
             CPUState::Halt => {}
         }
+
+        false
     }
 }

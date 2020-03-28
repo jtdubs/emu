@@ -29,8 +29,4 @@ impl cpu::Attachment for ROM {
     fn write(&mut self, _addr: u16, _data: u8) {
         panic!("attempted write to ROM");
     }
-
-    fn has_interrupt(&self) -> bool {
-        false
-    }
 }

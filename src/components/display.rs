@@ -190,7 +190,7 @@ impl HD44780U {
 }
 
 impl clock::Attachment for HD44780U {
-    fn cycle(&mut self) {
+    fn cycle(&mut self) -> bool {
         debug!("DSP: {:x?}", self);
 
         self.state = match self.state {
@@ -198,6 +198,8 @@ impl clock::Attachment for HD44780U {
             State::Busy(0) => State::Idle,
             State::Busy(c) => State::Busy(c - 1),
         };
+
+        false
     }
 }
 
