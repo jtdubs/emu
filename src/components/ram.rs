@@ -1,7 +1,5 @@
 use log::debug;
 
-use crate::components::cpu;
-
 pub struct RAM {
     pub mem: Vec<u8>,
 }
@@ -12,20 +10,18 @@ impl RAM {
         storage.resize(size, 0u8);
         RAM { mem: storage }
     }
-}
 
-impl cpu::Attachment for RAM {
-    fn peek(&self, addr: u16) -> u8 {
+    pub fn peek(&self, addr: u16) -> u8 {
         self.mem[addr as usize]
     }
 
-    fn read(&self, addr: u16) -> u8 {
+    pub fn read(&self, addr: u16) -> u8 {
         let data = self.mem[addr as usize];
         debug!("R @ {:04x} = {:02x}", addr, data);
         data
     }
 
-    fn write(&mut self, addr: u16, data: u8) {
+    pub fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
         self.mem[addr as usize] = data;
     }

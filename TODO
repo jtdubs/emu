@@ -3,13 +3,9 @@ TODO:
 - Better error handling (less panics)
 - Lower overhead method for controlling frequency...
 
-
-Optimizations:
-- Get rid of RefCell's by changing from a digraph to a tree.  Needs "clocked attachment" concept.  Maybe.
-
-
 Timing history:
 - Initial speed: 3.8MHz
 - Switch from Mutex to RefCell: 8.8MHz
 - Amortize timing measurements: 20MHz
 - Misc tiny tweaks: 20MHz
+- Re-write: 33MHz

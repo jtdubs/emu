@@ -67,10 +67,8 @@ impl SNESController {
             _ => {}
         }
     }
-}
 
-impl periph::Attachment for SNESController {
-    fn peek(&self, _p: periph::Port) -> u8 {
+    pub fn peek(&self, _p: periph::Port) -> u8 {
         let entry = self.events.get(&self.cur_button).unwrap();
         if *entry == 0 {
             0x01
@@ -79,7 +77,7 @@ impl periph::Attachment for SNESController {
         }
     }
 
-    fn read(&self, p: periph::Port) -> u8 {
+    pub fn read(&self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
         let entry = self.events.get(&self.cur_button).unwrap();
@@ -90,7 +88,7 @@ impl periph::Attachment for SNESController {
         }
     }
 
-    fn write(&mut self, p: periph::Port, val: u8) {
+    pub fn write(&mut self, p: periph::Port, val: u8) {
         debug!("W {:?} = {:?}", p, val);
         match val {
             0x02 => {

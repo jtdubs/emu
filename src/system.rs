@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::io::{stdout, Read, Write};
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::time::{Instant, Duration};
+use std::time::Instant;
 use termion::raw::IntoRawMode;
 
 use crate::components::*;
@@ -11,33 +9,19 @@ const CYCLES_PER_EPOCH: u64 = 1000000;
 const WINDOW_SIZE: u64 = 20;
 
 pub struct System {
-    pub clk: Clock,
-    pub cpu: Rc<RefCell<W65C02S>>,
-    pub ram: Rc<RefCell<RAM>>,
-    pub rom: Rc<RefCell<ROM>>,
-    pub per: Rc<RefCell<W65C22>>,
-    pub ada: Rc<RefCell<HD44780UAdapter>>,
-    pub dsp: Rc<RefCell<HD44780U>>,
-    pub con: Rc<RefCell<SNESController>>,
+    pub cpu: W65C02S,
     pub breakpoints: Vec<u16>,
-    sym2addr: HashMap<String, u16>,
-    addr2sym: HashMap<u16, String>,
-    cycle_count: u64,
-    epoch_start: Instant,
-    avg_nanos_per_epoch: u64,
+    pub sym2addr: HashMap<String, u16>,
+    pub addr2sym: HashMap<u16, String>,
+    pub cycle_count: u64,
+    pub epoch_start: Instant,
+    pub avg_nanos_per_epoch: u64,
 }
 
 impl System {
     pub fn new(rom_path: &str, sym_path: &str) -> System {
         let mut sys = System {
-            clk: Clock::new(),
-            cpu: Rc::new(RefCell::new(W65C02S::new())),
-            ram: Rc::new(RefCell::new(RAM::new(0x4000))),
-            rom: Rc::new(RefCell::new(ROM::load(rom_path))),
-            per: Rc::new(RefCell::new(W65C22::new())),
-            ada: Rc::new(RefCell::new(HD44780UAdapter::new())),
-            dsp: Rc::new(RefCell::new(HD44780U::new())),
-            con: Rc::new(RefCell::new(SNESController::new())),
+            cpu: W65C02S::new(rom_path),
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
@@ -48,35 +32,12 @@ impl System {
 
         sys.read_symbols(sym_path);
 
-        sys.clk.attach(sys.cpu.clone());
-        sys.clk.attach(sys.per.clone());
-        sys.clk.attach(sys.dsp.clone());
-
-        {
-            let mut c = sys.cpu.borrow_mut();
-            c.attach(0xC000, 0x0000, sys.ram.clone());
-            c.attach(0x8000, 0x8000, sys.rom.clone());
-            c.attach(0xFFF0, 0x6000, sys.per.clone());
-        }
-
-        {
-            let mut p = sys.per.borrow_mut();
-            p.attach_a(0xE0, sys.ada.clone());
-            p.attach_a(0x07, sys.con.clone());
-            p.attach_b(0xFF, sys.ada.clone());
-        }
-
-        {
-            let mut a = sys.ada.borrow_mut();
-            a.attach(sys.dsp.clone());
-        }
-
         sys
     }
 
     pub fn step(&mut self) {
         self.cycle();
-        while self.cpu.borrow().tcu != 1 {
+        while self.cpu.tcu != 1 {
             self.cycle();
         }
     }
@@ -89,13 +50,12 @@ impl System {
             self.epoch_start = now;
         }
 
-        let interrupt = self.clk.cycle();
-        self.cpu.borrow_mut().set_interrupt(interrupt);
+        self.cpu.cycle();
     }
 
     pub fn step_over(&mut self) {
-        if self.cpu.borrow().ir.0 == cpu::Instruction::JSR {
-            self.breakpoints.push(self.cpu.borrow().pc + 2);
+        if self.cpu.ir.0 == cpu::Instruction::JSR {
+            self.breakpoints.push(self.cpu.pc + 2);
             self.run();
             self.breakpoints.pop();
         } else {
@@ -107,7 +67,7 @@ impl System {
         let mut depth: i32 = 0;
 
         loop {
-            match self.cpu.borrow().ir.0 {
+            match self.cpu.ir.0 {
                 cpu::Instruction::JSR => depth += 1,
                 cpu::Instruction::RTS => depth -= 1,
                 _ => {}
@@ -115,7 +75,7 @@ impl System {
 
             self.step();
 
-            if self.cpu.borrow().is_halted() {
+            if self.cpu.is_halted() {
                 break;
             }
 
@@ -130,15 +90,13 @@ impl System {
             self.step();
 
             {
-                let cpu = self.cpu.borrow();
-
-                if cpu.is_halted() {
+                if self.cpu.is_halted() {
                     break;
                 }
 
                 if self
                     .breakpoints
-                    .contains(&(cpu.pc - 1))
+                    .contains(&(self.cpu.pc - 1))
                 {
                     break;
                 }
@@ -154,8 +112,7 @@ impl System {
         write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
         {
-            let dsp = self.dsp.borrow();
-            let (line1, line2) = dsp.get_output();
+            let (line1, line2) = self.cpu.per.ada.dsp.get_output();
             write!(
                 stdout,
                 "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r\n>\r{}",
@@ -176,7 +133,7 @@ impl System {
                     if buffer[0] == 0x1B {
                         break;
                     } else {
-                        self.con.borrow_mut().on_key(buffer[0] as char);
+                        self.cpu.per.con.on_key(buffer[0] as char);
                     }
                 }
                 Ok(_) => {}
@@ -185,18 +142,18 @@ impl System {
                 }
             }
 
-            if self.cpu.borrow().is_halted() {
+            if self.cpu.is_halted() {
                 break;
             }
 
             if self
                 .breakpoints
-                .contains(&(self.cpu.borrow().pc - 1))
+                .contains(&(self.cpu.pc - 1))
             {
                 break;
             }
 
-            let mut dsp = self.dsp.borrow_mut();
+            let dsp = &mut self.cpu.per.ada.dsp;
             if dsp.get_updated() {
                 let (line1, line2) = dsp.get_output();
                 write!(
@@ -258,37 +215,32 @@ impl System {
     }
 
     pub fn show_cpu(&self) {
-        let cpu = self.cpu.borrow();
-        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc);
-        self.show_instruction(&cpu);
+        print!("<{}> {:04x}: ", get_flag_string(self.cpu.p), self.cpu.pc);
+        self.show_instruction(&self.cpu);
         println!();
         println!(
             "A:{:02x}       X:{:02x}       Y:{:02x}          S:{:02x}",
-            cpu.a, cpu.x, cpu.y, cpu.s
+            self.cpu.a, self.cpu.x, self.cpu.y, self.cpu.s
         );
     }
 
     pub fn show_zp(&self) {
-        let ram = self.ram.borrow();
-        let slice = &ram.mem[0..0x100];
+        let slice = &self.cpu.ram.mem[0..0x100];
         show_bytes(slice, 0);
     }
 
     pub fn show_stack(&self) {
-        let ram = self.ram.borrow();
-        let slice = &ram.mem[0x100..0x200];
+        let slice = &self.cpu.ram.mem[0x100..0x200];
         show_bytes(slice, 0x100);
     }
 
     pub fn show_ram(&self) {
-        let ram = self.ram.borrow();
-        let slice = &ram.mem[0x200..];
+        let slice = &self.cpu.ram.mem[0x200..];
         show_bytes(slice, 0x200);
     }
 
     pub fn show_dsp(&self) {
-        let dsp = self.dsp.borrow();
-        let (line1, line2) = dsp.get_output();
+        let (line1, line2) = self.cpu.per.ada.dsp.get_output();
 
         println!("┌────────────────┐");
         println!("│{}│", line1);
@@ -297,7 +249,7 @@ impl System {
     }
 
     pub fn show_per(&self) {
-        let per = self.per.borrow();
+        let per = &self.cpu.per;
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr.get(), per.ier

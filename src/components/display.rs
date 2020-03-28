@@ -1,10 +1,7 @@
-use log::debug;
+use log::{debug, info};
 use std::fmt;
 use std::iter::FromIterator;
-use std::rc::Rc;
-use std::cell::RefCell;
 
-use crate::components::clock;
 use crate::components::periph;
 
 #[derive(Debug)]
@@ -123,7 +120,7 @@ impl HD44780U {
     }
 
     pub fn write(&mut self, addr: RegisterSelector, val: u8) {
-        debug!("W {:?} = {:02x}", addr, val);
+        info!("W {:?} = {:02x}", addr, val);
         match addr {
             RegisterSelector::Instruction => {
                 if val & 0x80 == 0x80 {
@@ -187,10 +184,8 @@ impl HD44780U {
         self.updated = false;
         result
     }
-}
 
-impl clock::Attachment for HD44780U {
-    fn cycle(&mut self) -> bool {
+    pub fn cycle(&mut self) {
         debug!("DSP: {:x?}", self);
 
         self.state = match self.state {
@@ -198,35 +193,19 @@ impl clock::Attachment for HD44780U {
             State::Busy(0) => State::Idle,
             State::Busy(c) => State::Busy(c - 1),
         };
-
-        false
     }
 }
 
 #[derive(Debug)]
 pub struct HD44780UAdapter {
-    a_cache: u8,
-    b_cache: u8,
-    dsp: Option<Rc<RefCell<HD44780U>>>,
+    pub a_cache: u8,
+    pub b_cache: u8,
+    pub dsp: HD44780U,
 }
 
 const RS: u8 = 0x20;
 const RW: u8 = 0x40;
 const E: u8 = 0x80;
-
-impl HD44780UAdapter {
-    pub fn new() -> HD44780UAdapter {
-        HD44780UAdapter {
-            a_cache: 0,
-            b_cache: 0,
-            dsp: None,
-        }
-    }
-
-    pub fn attach(&mut self, dsp: Rc<RefCell<HD44780U>>) {
-        self.dsp = Some(dsp);
-    }
-}
 
 fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
     (
@@ -240,49 +219,49 @@ fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
     )
 }
 
-impl periph::Attachment for HD44780UAdapter {
-    fn peek(&self, p: periph::Port) -> u8 {
-        if let Some(dsp) = &self.dsp {
-            match p {
-                periph::Port::A => 0u8,
-                periph::Port::B => dsp.borrow().peek(get_control(self.a_cache).0),
-            }
-        } else {
-            0u8
+impl HD44780UAdapter {
+    pub fn new() -> HD44780UAdapter {
+        HD44780UAdapter {
+            a_cache: 0,
+            b_cache: 0,
+            dsp: HD44780U::new(),
         }
     }
 
-    fn read(&self, p: periph::Port) -> u8 {
+    pub fn peek(&self, p: periph::Port) -> u8 {
+        match p {
+            periph::Port::A => 0u8,
+            periph::Port::B => self.dsp.peek(get_control(self.a_cache).0),
+        }
+    }
+
+    pub fn read(&self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
-        if let Some(dsp) = &self.dsp {
-            match p {
-                periph::Port::A => 0u8,
-                periph::Port::B => dsp.borrow().read(get_control(self.a_cache).0),
-            }
-        } else {
-            0u8
+        match p {
+            periph::Port::A => 0u8,
+            periph::Port::B => self.dsp.read(get_control(self.a_cache).0),
         }
     }
 
-    fn write(&mut self, p: periph::Port, val: u8) {
-        debug!("W {:?} = {:02x}", p, val);
-
-        if let Some(dsp) = &self.dsp {
-            match p {
-                periph::Port::A => {
-                    match (get_control(self.a_cache).2, get_control(val).2) {
-                        (true, false) => {
-                            dsp.borrow_mut().write(get_control(val).0, self.b_cache);
-                        }
-                        _ => {}
+    pub fn write(&mut self, p: periph::Port, val: u8) {
+        match p {
+            periph::Port::A => {
+                match (get_control(self.a_cache).2, get_control(val).2) {
+                    (true, false) => {
+                        self.dsp.write(get_control(val).0, self.b_cache);
                     }
-                    self.a_cache = val;
+                    _ => {}
                 }
-                periph::Port::B => {
-                    self.b_cache = val;
-                }
+                self.a_cache = val;
+            }
+            periph::Port::B => {
+                self.b_cache = val;
             }
         }
+    }
+
+    pub fn cycle(&mut self) {
+        self.dsp.cycle();
     }
 }

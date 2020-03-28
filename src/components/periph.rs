@@ -1,10 +1,8 @@
 use log::debug;
+use std::cell::Cell;
 use std::fmt;
-use std::rc::Rc;
-use std::cell::{Cell, RefCell};
 
-use crate::components::clock;
-use crate::components::cpu;
+use crate::components::{HD44780UAdapter, SNESController};
 
 #[derive(Debug)]
 pub enum Port {
@@ -12,16 +10,13 @@ pub enum Port {
     B,
 }
 
-pub trait Attachment {
-    fn peek(&self, p: Port) -> u8;
-    fn read(&self, p: Port) -> u8;
-    fn write(&mut self, p: Port, val: u8);
+#[derive(Debug)]
+enum Interrupts {
+    T1 = 0x40,
 }
 
 #[allow(dead_code)]
 pub struct W65C22 {
-    pub port_a: Vec<(u8, Rc<RefCell<dyn Attachment>>)>,
-    pub port_b: Vec<(u8, Rc<RefCell<dyn Attachment>>)>,
     pub orb: u8,
     pub ora: u8,
     pub ddrb: u8,
@@ -34,6 +29,8 @@ pub struct W65C22 {
     pub pcr: u8,
     pub ifr: Cell<u8>,
     pub ier: u8,
+    pub ada: HD44780UAdapter,
+    pub con: SNESController,
 }
 
 impl fmt::Debug for W65C22 {
@@ -50,8 +47,6 @@ impl fmt::Debug for W65C22 {
 impl W65C22 {
     pub fn new() -> W65C22 {
         W65C22 {
-            port_a: Vec::new(),
-            port_b: Vec::new(),
             orb: 0,
             ora: 0,
             ddrb: 0,
@@ -64,15 +59,9 @@ impl W65C22 {
             pcr: 0,
             ifr: Cell::new(0),
             ier: 0,
+            ada: HD44780UAdapter::new(),
+            con: SNESController::new(),
         }
-    }
-
-    pub fn attach_a(&mut self, mask: u8, device: Rc<RefCell<dyn Attachment>>) {
-        self.port_a.push((mask, device));
-    }
-
-    pub fn attach_b(&mut self, mask: u8, device: Rc<RefCell<dyn Attachment>>) {
-        self.port_b.push((mask, device));
     }
 
     fn set_interrupt(&self, i: Interrupts) {
@@ -92,15 +81,8 @@ impl W65C22 {
         }
         self.ifr.replace(ifr);
     }
-}
 
-#[derive(Debug)]
-enum Interrupts {
-    T1 = 0x40,
-}
-
-impl clock::Attachment for W65C22 {
-    fn cycle(&mut self) -> bool {
+    pub fn cycle(&mut self) -> bool {
         if self.t1c > 0 {
             self.t1c -= 1;
         } else {
@@ -125,37 +107,26 @@ impl clock::Attachment for W65C22 {
                     panic!("impossible value for self.acr");
                 }
             }
+
             // TODO: if T1 is set in IER, raise the interrupt
         }
 
-        self.ifr.get() & self.ier != 0
-    }
-}
+        self.ada.cycle();
 
-impl cpu::Attachment for W65C22 {
-    fn peek(&self, addr: u16) -> u8 {
+        (self.ifr.get() & self.ier) != 0
+    }
+
+    pub fn peek(&self, addr: u16) -> u8 {
         match addr {
-            0x0 => {
-                (self.orb & self.ddrb)
-                    | (self
-                        .port_b
-                        .iter()
-                        .map(|(mask, device)| device.borrow().peek(Port::B) & *mask)
-                        .fold(0, |a, b| a | b)
-                        & !self.ddrb)
-            }
+            0x0 => (self.orb & self.ddrb) | (self.ada.peek(Port::B) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
             0x2 => self.ddrb,
             0x3 => self.ddra,
-            0x4 => {
-                (self.t1c & 0x00ff) as u8
-            }
+            0x4 => (self.t1c & 0x00ff) as u8,
             0x5 => (self.t1c >> 8) as u8,
-            0x6 => {
-                (self.t1l & 0x00ff) as u8
-            }
+            0x6 => (self.t1l & 0x00ff) as u8,
             0x7 => (self.t1l >> 8) as u8,
             0x8 => {
                 unimplemented!("W65C22 - Read T2C_L");
@@ -176,28 +147,16 @@ impl cpu::Attachment for W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (self
-                        .port_a
-                        .iter()
-                        .map(|(mask, device)| device.borrow().peek(Port::A) & *mask)
-                        .fold(0, |a, b| a | b)
+                    | (((self.ada.peek(Port::A) & 0xE0) | (self.con.peek(Port::A) & 0x07))
                         & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
     }
 
-    fn read(&self, addr: u16) -> u8 {
+    pub fn read(&self, addr: u16) -> u8 {
         let data = match addr {
-            0x0 => {
-                (self.orb & self.ddrb)
-                    | (self
-                        .port_b
-                        .iter()
-                        .map(|(mask, device)| device.borrow().read(Port::B) & *mask)
-                        .fold(0, |a, b| a | b)
-                        & !self.ddrb)
-            }
+            0x0 => (self.orb & self.ddrb) | (self.ada.read(Port::B) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -232,11 +191,7 @@ impl cpu::Attachment for W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (self
-                        .port_a
-                        .iter()
-                        .map(|(mask, device)| device.borrow().read(Port::A) & *mask)
-                        .fold(0, |a, b| a | b)
+                    | (((self.ada.read(Port::A) & 0xE0) | (self.con.read(Port::A) & 0x07))
                         & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
@@ -245,15 +200,12 @@ impl cpu::Attachment for W65C22 {
         data
     }
 
-    fn write(&mut self, addr: u16, data: u8) {
+    pub fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
         match addr {
             0x0 => {
                 self.orb = data & self.ddrb;
-                let val = self.orb;
-                self.port_b.iter_mut().for_each(|(mask, device)| {
-                    device.borrow_mut().write(Port::B, val & *mask);
-                });
+                self.ada.write(Port::B, self.orb);
             }
             0x1 => {
                 unimplemented!("W65C22 - Access to ORA w/ handshake");
@@ -303,9 +255,8 @@ impl cpu::Attachment for W65C22 {
             0xF => {
                 self.ora = data & self.ddra;
                 let val = self.ora;
-                self.port_a.iter_mut().for_each(|(mask, device)| {
-                    device.borrow_mut().write(Port::A, val & *mask);
-                });
+                self.ada.write(Port::A, val & 0xE0);
+                self.con.write(Port::A, val & 0x07);
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }

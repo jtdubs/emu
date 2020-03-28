@@ -1,9 +1,7 @@
 use log::{debug, info};
 use std::fmt;
-use std::rc::Rc;
-use std::cell::RefCell;
 
-use crate::components::clock;
+use crate::components::{RAM, ROM, W65C22};
 
 #[derive(Debug)]
 pub enum CPUState {
@@ -385,14 +383,7 @@ pub enum CPUFlag {
     Negative = 0x80,
 }
 
-pub trait Attachment {
-    fn peek(&self, addr: u16) -> u8;
-    fn read(&self, addr: u16) -> u8;
-    fn write(&mut self, addr: u16, data: u8);
-}
-
 pub struct W65C02S {
-    pub attachments: Vec<(u16, u16, Rc<RefCell<dyn Attachment>>)>,
     pub state: CPUState, // cpu state
     pub ir: Opcode,      // instruction register
     pub tcu: u8,         // timing control unit
@@ -405,6 +396,9 @@ pub struct W65C02S {
     pub temp8: u8,       // temporary storage
     pub temp16: u16,     // temporary storage
     pub interrupt: bool, // an interrupt is available
+    pub ram: RAM,        // RAM
+    pub rom: ROM,        // ROM
+    pub per: W65C22,     // peripheral controller
 }
 
 impl fmt::Debug for W65C02S {
@@ -426,9 +420,8 @@ impl fmt::Debug for W65C02S {
 }
 
 impl W65C02S {
-    pub fn new() -> W65C02S {
+    pub fn new(path : &str) -> W65C02S {
         W65C02S {
-            attachments: Vec::new(),
             state: CPUState::Init(0),
             ir: (Instruction::NOP, AddressMode::Implied),
             tcu: 0,
@@ -440,12 +433,11 @@ impl W65C02S {
             s: 0,
             temp8: 0,
             temp16: 0,
-            interrupt: false
+            interrupt: false,
+            ram: RAM::new(0x4000),
+            rom: ROM::load(path),
+            per: W65C22::new(),
         }
-    }
-
-    pub fn set_interrupt(&mut self, interrupt: bool) {
-        self.interrupt = interrupt;
     }
 
     pub fn is_halted(&self) -> bool {
@@ -455,35 +447,40 @@ impl W65C02S {
         }
     }
 
-    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Rc<RefCell<dyn Attachment>>) {
-        self.attachments.push((addr_mask, addr_val, member));
-    }
-
-    fn get_attachment(&self, addr: u16) -> (u16, &Rc<RefCell<dyn Attachment>>) {
-        for (mask, val, attachment) in &self.attachments {
-            if addr & mask == *val {
-                return (addr & !mask, &attachment);
-            }
-        }
-
-        panic!("no attachment responded to addr: {:04x}", addr);
-    }
-
     pub fn peek(&self, addr: u16) -> u8 {
-        let (masked_addr, attachment) = self.get_attachment(addr);
-        attachment.borrow().peek(masked_addr)
+        if addr & 0x8000 == 0x8000 {
+            self.rom.peek(addr & !0x8000)
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.peek(addr & !0xC000)
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.peek(addr & !0xFFF0)
+        } else {
+            panic!("peek at unmapped address: {:02x}", addr);
+        }
     }
 
-    fn read(&self, addr: u16) -> u8 {
-        debug!("R @ {:04x}", addr);
-        let (masked_addr, attachment) = self.get_attachment(addr);
-        attachment.borrow().read(masked_addr)
+    pub fn read(&self, addr: u16) -> u8 {
+        if addr & 0x8000 == 0x8000 {
+            self.rom.read(addr & !0x8000)
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.read(addr & !0xC000)
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.read(addr & !0xFFF0)
+        } else {
+            panic!("read at unmapped address: {:02x}", addr);
+        }
     }
 
-    fn write(&mut self, addr: u16, data: u8) {
-        debug!("W @ {:04x} = {:02x}", addr, data);
-        let (masked_addr, attachment) = self.get_attachment(addr);
-        attachment.borrow_mut().write(masked_addr, data)
+    pub fn write(&mut self, addr: u16, val: u8) {
+        if addr & 0x8000 == 0x8000 {
+            self.rom.write(addr & !0x8000, val)
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.write(addr & !0xC000, val)
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.write(addr & !0xFFF0, val)
+        } else {
+            panic!("write at unmapped address: {:02x}", addr);
+        }
     }
 
     fn stack_push(&mut self, val: u8) {
@@ -563,10 +560,8 @@ impl W65C02S {
             self.tcu = 0;
         }
     }
-}
 
-impl clock::Attachment for W65C02S {
-    fn cycle(&mut self) -> bool {
+    pub fn cycle(&mut self) {
         debug!("CPU: {:x?}", self);
 
         match self.state {
@@ -1842,6 +1837,6 @@ impl clock::Attachment for W65C02S {
             CPUState::Halt => {}
         }
 
-        false
+        self.interrupt = self.per.cycle();
     }
 }
