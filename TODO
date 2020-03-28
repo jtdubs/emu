@@ -1,8 +1,13 @@
-- Benchmarking and speed improvements
-    - Less locking??  There's no actual multi-threading going on here...
-    - Add Durations for some number of cycles and do a moving average of cycle durations...
 - Better command-line invocation
 - Better error handling (less panics)
 
+
+
 - Initial speed: 3.8MHz
 - Switch from Mutex to RefCell: 8.8MHz
+- Amortize timing measurements: 200MHz
+
+
+- Speed up interrupt checking?
+- Reduce borrowing?
+- Change read to immutable?

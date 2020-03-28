@@ -7,6 +7,9 @@ use termion::raw::IntoRawMode;
 
 use crate::components::*;
 
+const CYCLES_PER_EPOCH: u64 = 1000;
+const WINDOW_SIZE: u64 = 100;
+
 pub struct System {
     pub clk: Clock,
     pub cpu: Rc<RefCell<W65C02S>>,
@@ -19,9 +22,9 @@ pub struct System {
     pub breakpoints: Vec<u16>,
     sym2addr: HashMap<String, u16>,
     addr2sym: HashMap<u16, String>,
-    last_cycle: Instant,
-    clock_period: Duration,
-    avg_clock_period_nanos: u128
+    cycle_count: u64,
+    epoch_start: Instant,
+    avg_nanos_per_epoch: u64,
 }
 
 impl System {
@@ -38,9 +41,9 @@ impl System {
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
-            last_cycle: Instant::now(),
-            clock_period: Duration::new(0, 500),
-            avg_clock_period_nanos: 1000000000,
+            cycle_count: 0,
+            epoch_start: Instant::now(),
+            avg_nanos_per_epoch: (1000 * CYCLES_PER_EPOCH),
         };
 
         sys.read_symbols(sym_path);
@@ -79,9 +82,13 @@ impl System {
     }
 
     pub fn cycle(&mut self) {
-        // while Instant::now().duration_since(self.last_cycle) < self.clock_period {}
-        self.avg_clock_period_nanos = ((self.avg_clock_period_nanos * 999999) / 1000000) + Instant::now().duration_since(self.last_cycle).as_nanos();
-        self.last_cycle = Instant::now();
+        self.cycle_count = self.cycle_count.wrapping_add(1);
+        if self.cycle_count % CYCLES_PER_EPOCH == 0 {
+            let now = Instant::now();
+            self.avg_nanos_per_epoch = ((self.avg_nanos_per_epoch * (WINDOW_SIZE - 1)) / WINDOW_SIZE) + (now.duration_since(self.epoch_start).as_nanos() as u64);
+            self.epoch_start = now;
+        }
+
         self.clk.cycle();
     }
 
@@ -121,15 +128,19 @@ impl System {
         loop {
             self.step();
 
-            if self.cpu.borrow().is_halted() {
-                break;
-            }
-
-            if self
-                .breakpoints
-                .contains(&(self.cpu.borrow().pc - 1))
             {
-                break;
+                let cpu = self.cpu.borrow();
+
+                if cpu.is_halted() {
+                    break;
+                }
+
+                if self
+                    .breakpoints
+                    .contains(&(cpu.pc - 1))
+                {
+                    break;
+                }
             }
         }
     }
@@ -155,7 +166,7 @@ impl System {
             stdout.flush().unwrap();
         }
 
-        self.last_cycle = Instant::now();
+        self.epoch_start = Instant::now();
         loop {
             self.step();
 
@@ -192,8 +203,8 @@ impl System {
                     "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns){}\r{}",
                     line1,
                     line2,
-                    1000.0 / (self.avg_clock_period_nanos / 1000000) as f32,
-                    self.avg_clock_period_nanos / 1000000,
+                    1000.0 / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * 1000)) as f32,
+                    self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * 1000),
                     termion::clear::AfterCursor,
                     termion::cursor::Up(3),
                 )

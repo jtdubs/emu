@@ -29,9 +29,8 @@ impl Clock {
     }
 
     pub fn cycle(&mut self) {
-        debug!("CYCLE");
-        self.attachments
-            .iter_mut()
-            .for_each(|a| a.borrow_mut().cycle());
+        for a in &self.attachments {
+            a.borrow_mut().cycle();
+        }
     }
 }
