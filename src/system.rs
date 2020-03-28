@@ -21,6 +21,7 @@ pub struct System {
     addr2sym: HashMap<u16, String>,
     last_cycle: Instant,
     clock_period: Duration,
+    avg_clock_period_nanos: u128
 }
 
 impl System {
@@ -39,6 +40,7 @@ impl System {
             addr2sym: HashMap::new(),
             last_cycle: Instant::now(),
             clock_period: Duration::new(0, 500),
+            avg_clock_period_nanos: 1000000000,
         };
 
         sys.read_symbols(sym_path);
@@ -77,7 +79,8 @@ impl System {
     }
 
     pub fn cycle(&mut self) {
-        while Instant::now().duration_since(self.last_cycle) < self.clock_period {}
+        // while Instant::now().duration_since(self.last_cycle) < self.clock_period {}
+        self.avg_clock_period_nanos = ((self.avg_clock_period_nanos * 999999) / 1000000) + Instant::now().duration_since(self.last_cycle).as_nanos();
         self.last_cycle = Instant::now();
         self.clk.cycle();
     }
@@ -132,8 +135,6 @@ impl System {
     }
 
     pub fn run(&mut self) {
-        let mut i: u32 = 0;
-
         let mut stdout = stdout().into_raw_mode().unwrap();
         let mut stdin = termion::async_stdin_until(0x1B);
         let mut buffer = [0u8; 8];
@@ -148,12 +149,13 @@ impl System {
                 "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r\n>\r{}",
                 line1,
                 line2,
-                termion::cursor::Up(2)
+                termion::cursor::Up(3)
             )
             .unwrap();
             stdout.flush().unwrap();
         }
 
+        self.last_cycle = Instant::now();
         loop {
             self.step();
 
@@ -182,20 +184,19 @@ impl System {
                 break;
             }
 
-            i = i.wrapping_add(0);
-            if i % 40 == 0 {
-                let mut dsp = self.dsp.lock().unwrap();
-                if dsp.get_updated() {
-                    let (line1, line2) = dsp.get_output();
-                    write!(
-                        stdout,
-                        "{}│{}│\r\n│{}│\r",
-                        termion::cursor::Up(1),
-                        line1,
-                        line2
-                    )
-                    .unwrap();
-                }
+            let mut dsp = self.dsp.lock().unwrap();
+            if dsp.get_updated() {
+                let (line1, line2) = dsp.get_output();
+                write!(
+                    stdout,
+                    "│{}│\r\n│{}│\r\n\n> {:?}ns{}\r{}",
+                    line1,
+                    line2,
+                    self.avg_clock_period_nanos / 1000000,
+                    termion::clear::AfterCursor,
+                    termion::cursor::Up(3),
+                )
+                .unwrap();
             }
         }
 
