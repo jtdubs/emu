@@ -1,7 +1,7 @@
 use log::{debug, info};
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::cell::RefCell;
 
 use crate::components::clock;
 
@@ -394,7 +394,7 @@ pub trait Attachment {
 }
 
 pub struct W65C02S {
-    pub attachments: Vec<(u16, u16, Rc<Mutex<dyn Attachment>>)>,
+    pub attachments: Vec<(u16, u16, Rc<RefCell<dyn Attachment>>)>,
     pub state: CPUState, // cpu state
     pub ir: Opcode,      // instruction register
     pub tcu: u8,         // timing control unit
@@ -451,13 +451,13 @@ impl W65C02S {
         }
     }
 
-    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Rc<Mutex<dyn Attachment>>) {
+    pub fn attach(&mut self, addr_mask: u16, addr_val: u16, member: Rc<RefCell<dyn Attachment>>) {
         self.attachments.push((addr_mask, addr_val, member));
     }
 
     fn with_attachment<F, R>(&self, addr: u16, f: F) -> R
     where
-        F: Fn(u16, &Rc<Mutex<dyn Attachment>>) -> R,
+        F: Fn(u16, &Rc<RefCell<dyn Attachment>>) -> R,
     {
         let mut attachments = self
             .attachments
@@ -478,17 +478,17 @@ impl W65C02S {
     }
 
     pub fn peek(&self, addr: u16) -> u8 {
-        self.with_attachment(addr, |a, m| m.lock().unwrap().peek(a))
+        self.with_attachment(addr, |a, m| m.borrow().peek(a))
     }
 
     fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
-        self.with_attachment(addr, |a, m| m.lock().unwrap().read(a))
+        self.with_attachment(addr, |a, m| m.borrow_mut().read(a))
     }
 
     fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
-        self.with_attachment(addr, |a, m| m.lock().unwrap().write(a, data))
+        self.with_attachment(addr, |a, m| m.borrow_mut().write(a, data))
     }
 
     fn stack_push(&mut self, val: u8) {
@@ -594,7 +594,7 @@ impl clock::Attachment for W65C02S {
                             && self
                                 .attachments
                                 .iter()
-                                .any(|(_, _, a)| a.lock().unwrap().has_interrupt())
+                                .any(|(_, _, a)| a.borrow().has_interrupt())
                         {
                             debug!("Interrupt!");
                             self.ir = (Instruction::BRK, AddressMode::Implied);
@@ -1846,7 +1846,7 @@ impl clock::Attachment for W65C02S {
                     && self
                         .attachments
                         .iter()
-                        .any(|(_, _, a)| a.lock().unwrap().has_interrupt())
+                        .any(|(_, _, a)| a.borrow().has_interrupt())
                 {
                     debug!("Interrupt!");
                     self.ir = (Instruction::BRK, AddressMode::Implied);

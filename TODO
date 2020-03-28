@@ -3,3 +3,6 @@
     - Add Durations for some number of cycles and do a moving average of cycle durations...
 - Better command-line invocation
 - Better error handling (less panics)
+
+- Initial speed: 3.8MHz
+- Switch from Mutex to RefCell: 8.8MHz

@@ -1,14 +1,14 @@
 use log::debug;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::cell::RefCell;
 
 pub trait Attachment {
     fn cycle(&mut self);
 }
 
 pub struct Clock {
-    attachments: Vec<Rc<Mutex<dyn Attachment>>>,
+    attachments: Vec<Rc<RefCell<dyn Attachment>>>,
 }
 
 impl fmt::Debug for Clock {
@@ -24,7 +24,7 @@ impl Clock {
         }
     }
 
-    pub fn attach(&mut self, attachment: Rc<Mutex<dyn Attachment>>) {
+    pub fn attach(&mut self, attachment: Rc<RefCell<dyn Attachment>>) {
         self.attachments.push(attachment);
     }
 
@@ -32,6 +32,6 @@ impl Clock {
         debug!("CYCLE");
         self.attachments
             .iter_mut()
-            .for_each(|a| a.lock().unwrap().cycle());
+            .for_each(|a| a.borrow_mut().cycle());
     }
 }

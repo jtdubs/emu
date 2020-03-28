@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::{stdout, Read, Write};
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::cell::RefCell;
 use std::time::{Instant, Duration};
 use termion::raw::IntoRawMode;
 
@@ -9,13 +9,13 @@ use crate::components::*;
 
 pub struct System {
     pub clk: Clock,
-    pub cpu: Rc<Mutex<W65C02S>>,
-    pub ram: Rc<Mutex<RAM>>,
-    pub rom: Rc<Mutex<ROM>>,
-    pub per: Rc<Mutex<W65C22>>,
-    pub ada: Rc<Mutex<HD44780UAdapter>>,
-    pub dsp: Rc<Mutex<HD44780U>>,
-    pub con: Rc<Mutex<SNESController>>,
+    pub cpu: Rc<RefCell<W65C02S>>,
+    pub ram: Rc<RefCell<RAM>>,
+    pub rom: Rc<RefCell<ROM>>,
+    pub per: Rc<RefCell<W65C22>>,
+    pub ada: Rc<RefCell<HD44780UAdapter>>,
+    pub dsp: Rc<RefCell<HD44780U>>,
+    pub con: Rc<RefCell<SNESController>>,
     pub breakpoints: Vec<u16>,
     sym2addr: HashMap<String, u16>,
     addr2sym: HashMap<u16, String>,
@@ -28,13 +28,13 @@ impl System {
     pub fn new(rom_path: &str, sym_path: &str) -> System {
         let mut sys = System {
             clk: Clock::new(),
-            cpu: Rc::new(Mutex::new(W65C02S::new())),
-            ram: Rc::new(Mutex::new(RAM::new(0x4000))),
-            rom: Rc::new(Mutex::new(ROM::load(rom_path))),
-            per: Rc::new(Mutex::new(W65C22::new())),
-            ada: Rc::new(Mutex::new(HD44780UAdapter::new())),
-            dsp: Rc::new(Mutex::new(HD44780U::new())),
-            con: Rc::new(Mutex::new(SNESController::new())),
+            cpu: Rc::new(RefCell::new(W65C02S::new())),
+            ram: Rc::new(RefCell::new(RAM::new(0x4000))),
+            rom: Rc::new(RefCell::new(ROM::load(rom_path))),
+            per: Rc::new(RefCell::new(W65C22::new())),
+            ada: Rc::new(RefCell::new(HD44780UAdapter::new())),
+            dsp: Rc::new(RefCell::new(HD44780U::new())),
+            con: Rc::new(RefCell::new(SNESController::new())),
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
@@ -50,21 +50,21 @@ impl System {
         sys.clk.attach(sys.dsp.clone());
 
         {
-            let mut c = sys.cpu.lock().unwrap();
+            let mut c = sys.cpu.borrow_mut();
             c.attach(0xC000, 0x0000, sys.ram.clone());
             c.attach(0x8000, 0x8000, sys.rom.clone());
             c.attach(0xFFF0, 0x6000, sys.per.clone());
         }
 
         {
-            let mut p = sys.per.lock().unwrap();
+            let mut p = sys.per.borrow_mut();
             p.attach_a(0xE0, sys.ada.clone());
             p.attach_a(0x07, sys.con.clone());
             p.attach_b(0xFF, sys.ada.clone());
         }
 
         {
-            let mut a = sys.ada.lock().unwrap();
+            let mut a = sys.ada.borrow_mut();
             a.attach(sys.dsp.clone());
         }
 
@@ -73,7 +73,7 @@ impl System {
 
     pub fn step(&mut self) {
         self.cycle();
-        while self.cpu.lock().unwrap().tcu != 1 {
+        while self.cpu.borrow().tcu != 1 {
             self.cycle();
         }
     }
@@ -86,8 +86,8 @@ impl System {
     }
 
     pub fn step_over(&mut self) {
-        if self.cpu.lock().unwrap().ir.0 == cpu::Instruction::JSR {
-            self.breakpoints.push(self.cpu.lock().unwrap().pc + 2);
+        if self.cpu.borrow().ir.0 == cpu::Instruction::JSR {
+            self.breakpoints.push(self.cpu.borrow().pc + 2);
             self.run();
             self.breakpoints.pop();
         } else {
@@ -99,7 +99,7 @@ impl System {
         let mut depth: i32 = 0;
 
         loop {
-            match self.cpu.lock().unwrap().ir.0 {
+            match self.cpu.borrow().ir.0 {
                 cpu::Instruction::JSR => depth += 1,
                 cpu::Instruction::RTS => depth -= 1,
                 _ => {}
@@ -107,7 +107,7 @@ impl System {
 
             self.step();
 
-            if self.cpu.lock().unwrap().is_halted() {
+            if self.cpu.borrow().is_halted() {
                 break;
             }
 
@@ -121,13 +121,13 @@ impl System {
         loop {
             self.step();
 
-            if self.cpu.lock().unwrap().is_halted() {
+            if self.cpu.borrow().is_halted() {
                 break;
             }
 
             if self
                 .breakpoints
-                .contains(&(self.cpu.lock().unwrap().pc - 1))
+                .contains(&(self.cpu.borrow().pc - 1))
             {
                 break;
             }
@@ -142,7 +142,7 @@ impl System {
         write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
         {
-            let dsp = self.dsp.lock().unwrap();
+            let dsp = self.dsp.borrow();
             let (line1, line2) = dsp.get_output();
             write!(
                 stdout,
@@ -164,7 +164,7 @@ impl System {
                     if buffer[0] == 0x1B {
                         break;
                     } else {
-                        self.con.lock().unwrap().on_key(buffer[0] as char);
+                        self.con.borrow_mut().on_key(buffer[0] as char);
                     }
                 }
                 Ok(_) => {}
@@ -173,18 +173,18 @@ impl System {
                 }
             }
 
-            if self.cpu.lock().unwrap().is_halted() {
+            if self.cpu.borrow().is_halted() {
                 break;
             }
 
             if self
                 .breakpoints
-                .contains(&(self.cpu.lock().unwrap().pc - 1))
+                .contains(&(self.cpu.borrow().pc - 1))
             {
                 break;
             }
 
-            let mut dsp = self.dsp.lock().unwrap();
+            let mut dsp = self.dsp.borrow_mut();
             if dsp.get_updated() {
                 let (line1, line2) = dsp.get_output();
                 write!(
@@ -246,7 +246,7 @@ impl System {
     }
 
     pub fn show_cpu(&self) {
-        let cpu = self.cpu.lock().unwrap();
+        let cpu = self.cpu.borrow();
         print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc);
         self.show_instruction(&cpu);
         println!();
@@ -257,25 +257,25 @@ impl System {
     }
 
     pub fn show_zp(&self) {
-        let ram = self.ram.lock().unwrap();
+        let ram = self.ram.borrow();
         let slice = &ram.mem[0..0x100];
         show_bytes(slice, 0);
     }
 
     pub fn show_stack(&self) {
-        let ram = self.ram.lock().unwrap();
+        let ram = self.ram.borrow();
         let slice = &ram.mem[0x100..0x200];
         show_bytes(slice, 0x100);
     }
 
     pub fn show_ram(&self) {
-        let ram = self.ram.lock().unwrap();
+        let ram = self.ram.borrow();
         let slice = &ram.mem[0x200..];
         show_bytes(slice, 0x200);
     }
 
     pub fn show_dsp(&self) {
-        let dsp = self.dsp.lock().unwrap();
+        let dsp = self.dsp.borrow();
         let (line1, line2) = dsp.get_output();
 
         println!("┌────────────────┐");
@@ -285,7 +285,7 @@ impl System {
     }
 
     pub fn show_per(&self) {
-        let per = self.per.lock().unwrap();
+        let per = self.per.borrow();
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr, per.ier

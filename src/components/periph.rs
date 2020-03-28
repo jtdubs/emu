@@ -1,7 +1,7 @@
 use log::debug;
 use std::fmt;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::cell::RefCell;
 
 use crate::components::clock;
 use crate::components::cpu;
@@ -20,8 +20,8 @@ pub trait Attachment {
 
 #[allow(dead_code)]
 pub struct W65C22 {
-    pub port_a: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
-    pub port_b: Vec<(u8, Rc<Mutex<dyn Attachment>>)>,
+    pub port_a: Vec<(u8, Rc<RefCell<dyn Attachment>>)>,
+    pub port_b: Vec<(u8, Rc<RefCell<dyn Attachment>>)>,
     pub orb: u8,
     pub ora: u8,
     pub ddrb: u8,
@@ -67,11 +67,11 @@ impl W65C22 {
         }
     }
 
-    pub fn attach_a(&mut self, mask: u8, device: Rc<Mutex<dyn Attachment>>) {
+    pub fn attach_a(&mut self, mask: u8, device: Rc<RefCell<dyn Attachment>>) {
         self.port_a.push((mask, device));
     }
 
-    pub fn attach_b(&mut self, mask: u8, device: Rc<Mutex<dyn Attachment>>) {
+    pub fn attach_b(&mut self, mask: u8, device: Rc<RefCell<dyn Attachment>>) {
         self.port_b.push((mask, device));
     }
 
@@ -134,7 +134,7 @@ impl cpu::Attachment for W65C22 {
                     | (self
                         .port_b
                         .iter()
-                        .map(|(mask, device)| device.lock().unwrap().peek(Port::B) & *mask)
+                        .map(|(mask, device)| device.borrow().peek(Port::B) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddrb)
             }
@@ -173,7 +173,7 @@ impl cpu::Attachment for W65C22 {
                     | (self
                         .port_a
                         .iter()
-                        .map(|(mask, device)| device.lock().unwrap().peek(Port::A) & *mask)
+                        .map(|(mask, device)| device.borrow().peek(Port::A) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddra)
             }
@@ -188,7 +188,7 @@ impl cpu::Attachment for W65C22 {
                     | (self
                         .port_b
                         .iter_mut()
-                        .map(|(mask, device)| device.lock().unwrap().read(Port::B) & *mask)
+                        .map(|(mask, device)| device.borrow_mut().read(Port::B) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddrb)
             }
@@ -229,7 +229,7 @@ impl cpu::Attachment for W65C22 {
                     | (self
                         .port_a
                         .iter_mut()
-                        .map(|(mask, device)| device.lock().unwrap().read(Port::A) & *mask)
+                        .map(|(mask, device)| device.borrow_mut().read(Port::A) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddra)
             }
@@ -246,7 +246,7 @@ impl cpu::Attachment for W65C22 {
                 self.orb = data & self.ddrb;
                 let val = self.orb;
                 self.port_b.iter_mut().for_each(|(mask, device)| {
-                    device.lock().unwrap().write(Port::B, val & *mask);
+                    device.borrow_mut().write(Port::B, val & *mask);
                 });
             }
             0x1 => {
@@ -298,7 +298,7 @@ impl cpu::Attachment for W65C22 {
                 self.ora = data & self.ddra;
                 let val = self.ora;
                 self.port_a.iter_mut().for_each(|(mask, device)| {
-                    device.lock().unwrap().write(Port::A, val & *mask);
+                    device.borrow_mut().write(Port::A, val & *mask);
                 });
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),

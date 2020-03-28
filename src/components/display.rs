@@ -2,7 +2,7 @@ use log::debug;
 use std::fmt;
 use std::iter::FromIterator;
 use std::rc::Rc;
-use std::sync::Mutex;
+use std::cell::RefCell;
 
 use crate::components::clock;
 use crate::components::periph;
@@ -205,7 +205,7 @@ impl clock::Attachment for HD44780U {
 pub struct HD44780UAdapter {
     a_cache: u8,
     b_cache: u8,
-    dsp: Option<Rc<Mutex<HD44780U>>>,
+    dsp: Option<Rc<RefCell<HD44780U>>>,
 }
 
 const RS: u8 = 0x20;
@@ -221,7 +221,7 @@ impl HD44780UAdapter {
         }
     }
 
-    pub fn attach(&mut self, dsp: Rc<Mutex<HD44780U>>) {
+    pub fn attach(&mut self, dsp: Rc<RefCell<HD44780U>>) {
         self.dsp = Some(dsp);
     }
 }
@@ -243,7 +243,7 @@ impl periph::Attachment for HD44780UAdapter {
         if let Some(dsp) = &self.dsp {
             match p {
                 periph::Port::A => 0u8,
-                periph::Port::B => dsp.lock().unwrap().peek(get_control(self.a_cache).0),
+                periph::Port::B => dsp.borrow().peek(get_control(self.a_cache).0),
             }
         } else {
             0u8
@@ -256,7 +256,7 @@ impl periph::Attachment for HD44780UAdapter {
         if let Some(dsp) = &self.dsp {
             match p {
                 periph::Port::A => 0u8,
-                periph::Port::B => dsp.lock().unwrap().read(get_control(self.a_cache).0),
+                periph::Port::B => dsp.borrow_mut().read(get_control(self.a_cache).0),
             }
         } else {
             0u8
@@ -271,7 +271,7 @@ impl periph::Attachment for HD44780UAdapter {
                 periph::Port::A => {
                     match (get_control(self.a_cache).2, get_control(val).2) {
                         (true, false) => {
-                            dsp.lock().unwrap().write(get_control(val).0, self.b_cache);
+                            dsp.borrow_mut().write(get_control(val).0, self.b_cache);
                         }
                         _ => {}
                     }
