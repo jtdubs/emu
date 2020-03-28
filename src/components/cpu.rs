@@ -459,22 +459,13 @@ impl W65C02S {
     where
         F: Fn(u16, &Rc<RefCell<dyn Attachment>>) -> R,
     {
-        let mut attachments = self
-            .attachments
-            .iter()
-            .filter(move |&(mask, val, _)| (addr & mask) == *val);
-
-        match attachments.next() {
-            None => {
-                panic!("no bus member responded to addr: {:04x}", addr);
+        for (mask, val, attachment) in &self.attachments {
+            if addr & mask == *val {
+                return f(addr & !mask, &attachment);
             }
-            Some((mask, _, member)) => match attachments.next() {
-                None => f(addr & !mask, member),
-                _ => {
-                    panic!("multiple bus members responded to addr: {:04x}", addr);
-                }
-            },
         }
+
+        panic!("no attachment responded to addr: {:04x}", addr);
     }
 
     pub fn peek(&self, addr: u16) -> u8 {
