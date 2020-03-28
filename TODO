@@ -11,5 +11,5 @@ Optimizations:
 Timing history:
 - Initial speed: 3.8MHz
 - Switch from Mutex to RefCell: 8.8MHz
-- Amortize timing measurements: 200MHz
-- Misc tiny tweaks: 225MHz
+- Amortize timing measurements: 20MHz
+- Misc tiny tweaks: 20MHz
