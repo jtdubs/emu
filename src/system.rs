@@ -299,7 +299,7 @@ impl System {
         let per = self.per.borrow();
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
-            per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr, per.ier
+            per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr.get(), per.ier
         );
     }
 

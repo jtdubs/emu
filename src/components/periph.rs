@@ -1,7 +1,7 @@
 use log::debug;
 use std::fmt;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use crate::components::clock;
 use crate::components::cpu;
@@ -14,7 +14,7 @@ pub enum Port {
 
 pub trait Attachment {
     fn peek(&self, p: Port) -> u8;
-    fn read(&mut self, p: Port) -> u8;
+    fn read(&self, p: Port) -> u8;
     fn write(&mut self, p: Port, val: u8);
 }
 
@@ -32,7 +32,7 @@ pub struct W65C22 {
     pub sr: u8,
     pub acr: u8,
     pub pcr: u8,
-    pub ifr: u8,
+    pub ifr: Cell<u8>,
     pub ier: u8,
 }
 
@@ -62,7 +62,7 @@ impl W65C22 {
             sr: 0,
             acr: 0,
             pcr: 0,
-            ifr: 0,
+            ifr: Cell::new(0),
             ier: 0,
         }
     }
@@ -75,18 +75,22 @@ impl W65C22 {
         self.port_b.push((mask, device));
     }
 
-    fn set_interrupt(&mut self, i: Interrupts) {
+    fn set_interrupt(&self, i: Interrupts) {
         debug!("Set interrupt: {:?}", i);
-        self.ifr |= i as u8;
-        self.ifr |= 0x80;
+        let mut ifr = self.ifr.get();
+        ifr |= i as u8;
+        ifr |= 0x80;
+        self.ifr.replace(ifr);
     }
 
-    fn clear_interrupt(&mut self, i: Interrupts) {
+    fn clear_interrupt(&self, i: Interrupts) {
         debug!("Clear interrupt: {:?}", i);
-        self.ifr &= !(i as u8);
-        if self.ifr == 0x80 {
-            self.ifr = 0;
+        let mut ifr = self.ifr.get();
+        ifr &= !(i as u8);
+        if ifr == 0x80 {
+            ifr = 0;
         }
+        self.ifr.replace(ifr);
     }
 }
 
@@ -166,7 +170,7 @@ impl cpu::Attachment for W65C22 {
             0xC => {
                 unimplemented!("W65C22 - Read PCR");
             }
-            0xD => self.ifr,
+            0xD => self.ifr.get(),
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
@@ -181,14 +185,14 @@ impl cpu::Attachment for W65C22 {
         }
     }
 
-    fn read(&mut self, addr: u16) -> u8 {
+    fn read(&self, addr: u16) -> u8 {
         let data = match addr {
             0x0 => {
                 (self.orb & self.ddrb)
                     | (self
                         .port_b
-                        .iter_mut()
-                        .map(|(mask, device)| device.borrow_mut().read(Port::B) & *mask)
+                        .iter()
+                        .map(|(mask, device)| device.borrow().read(Port::B) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddrb)
             }
@@ -222,14 +226,14 @@ impl cpu::Attachment for W65C22 {
             0xC => {
                 unimplemented!("W65C22 - Read PCR");
             }
-            0xD => self.ifr,
+            0xD => self.ifr.get(),
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
                     | (self
                         .port_a
-                        .iter_mut()
-                        .map(|(mask, device)| device.borrow_mut().read(Port::A) & *mask)
+                        .iter()
+                        .map(|(mask, device)| device.borrow().read(Port::A) & *mask)
                         .fold(0, |a, b| a | b)
                         & !self.ddra)
             }
@@ -289,7 +293,7 @@ impl cpu::Attachment for W65C22 {
                 unimplemented!("W65C22 - Write PCR");
             }
             0xD => {
-                self.ifr &= !data;
+                *self.ifr.get_mut() &= !data;
             }
             0xE => {
                 self.ier = data;
@@ -306,6 +310,6 @@ impl cpu::Attachment for W65C22 {
     }
 
     fn has_interrupt(&self) -> bool {
-        self.ifr & self.ier != 0
+        self.ifr.get() & self.ier != 0
     }
 }

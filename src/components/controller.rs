@@ -79,7 +79,7 @@ impl periph::Attachment for SNESController {
         }
     }
 
-    fn read(&mut self, p: periph::Port) -> u8 {
+    fn read(&self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
         let entry = self.events.get(&self.cur_button).unwrap();

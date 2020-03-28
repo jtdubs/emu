@@ -99,7 +99,7 @@ impl HD44780U {
         }
     }
 
-    pub fn read(&mut self, addr: RegisterSelector) -> u8 {
+    pub fn read(&self, addr: RegisterSelector) -> u8 {
         match addr {
             RegisterSelector::Instruction => {
                 let mut result = self.addr;
@@ -250,13 +250,13 @@ impl periph::Attachment for HD44780UAdapter {
         }
     }
 
-    fn read(&mut self, p: periph::Port) -> u8 {
+    fn read(&self, p: periph::Port) -> u8 {
         debug!("R {:?}", p);
 
         if let Some(dsp) = &self.dsp {
             match p {
                 periph::Port::A => 0u8,
-                periph::Port::B => dsp.borrow_mut().read(get_control(self.a_cache).0),
+                periph::Port::B => dsp.borrow().read(get_control(self.a_cache).0),
             }
         } else {
             0u8

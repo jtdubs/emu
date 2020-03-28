@@ -8,6 +8,4 @@
 - Amortize timing measurements: 200MHz
 
 
-- Speed up interrupt checking?
-- Reduce borrowing?
-- Change read to immutable?
+- Allow periphs to push interrupts to CPU rather than polling each cycle

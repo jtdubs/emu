@@ -387,7 +387,7 @@ pub enum CPUFlag {
 
 pub trait Attachment {
     fn peek(&self, addr: u16) -> u8;
-    fn read(&mut self, addr: u16) -> u8;
+    fn read(&self, addr: u16) -> u8;
     fn write(&mut self, addr: u16, data: u8);
 
     fn has_interrupt(&self) -> bool;
@@ -483,7 +483,7 @@ impl W65C02S {
 
     fn read(&self, addr: u16) -> u8 {
         debug!("R @ {:04x}", addr);
-        self.with_attachment(addr, |a, m| m.borrow_mut().read(a))
+        self.with_attachment(addr, |a, m| m.borrow().read(a))
     }
 
     fn write(&mut self, addr: u16, data: u8) {
@@ -501,7 +501,7 @@ impl W65C02S {
         self.read(0x0100 + (self.s as u16))
     }
 
-    fn stack_peek(&mut self) -> u8 {
+    fn stack_peek(&self) -> u8 {
         self.read(0x0100 + (self.s as u16))
     }
 
