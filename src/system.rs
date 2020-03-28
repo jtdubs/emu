@@ -7,8 +7,8 @@ use termion::raw::IntoRawMode;
 
 use crate::components::*;
 
-const CYCLES_PER_EPOCH: u64 = 1000;
-const WINDOW_SIZE: u64 = 100;
+const CYCLES_PER_EPOCH: u64 = 1000000;
+const WINDOW_SIZE: u64 = 20;
 
 pub struct System {
     pub clk: Clock,
@@ -43,7 +43,7 @@ impl System {
             addr2sym: HashMap::new(),
             cycle_count: 0,
             epoch_start: Instant::now(),
-            avg_nanos_per_epoch: (1000 * CYCLES_PER_EPOCH),
+            avg_nanos_per_epoch: CYCLES_PER_EPOCH * WINDOW_SIZE,
         };
 
         sys.read_symbols(sym_path);
@@ -204,8 +204,8 @@ impl System {
                     "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns){}\r{}",
                     line1,
                     line2,
-                    1000.0 / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * 1000)) as f32,
-                    self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * 1000),
+                    1000.0 / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                    self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE),
                     termion::clear::AfterCursor,
                     termion::cursor::Up(3),
                 )
