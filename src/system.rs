@@ -1,12 +1,16 @@
 use std::collections::HashMap;
 use std::io::{stdout, Read, Write};
 use std::time::Instant;
+use std::sync::{Condvar, Mutex, Arc};
 use termion::raw::IntoRawMode;
+use chrono::Duration;
+use timer::Timer;
 
 use crate::components::*;
 
-const CYCLES_PER_EPOCH: u64 = 1000000;
-const WINDOW_SIZE: u64 = 20;
+const CYCLE_NANOSECONDS: u64 = 1000;
+const CYCLES_PER_EPOCH: u64 = 10000;
+const WINDOW_SIZE: u64 = 200;
 
 pub struct System {
     pub cpu: W65C02S,
@@ -16,6 +20,8 @@ pub struct System {
     pub cycle_count: u64,
     pub epoch_start: Instant,
     pub avg_nanos_per_epoch: u64,
+    pub timer: Timer,
+    pub cycle_gate: Arc<(Condvar, Mutex<u32>)>,
 }
 
 impl System {
@@ -27,30 +33,19 @@ impl System {
             addr2sym: HashMap::new(),
             cycle_count: 0,
             epoch_start: Instant::now(),
-            avg_nanos_per_epoch: CYCLES_PER_EPOCH * WINDOW_SIZE,
+            avg_nanos_per_epoch: CYCLES_PER_EPOCH * WINDOW_SIZE * CYCLE_NANOSECONDS,
+            timer: Timer::new(),
+            cycle_gate: Arc::new((Condvar::new(), Mutex::new(0))),
         };
 
         sys.read_symbols(sym_path);
-
         sys
     }
 
     pub fn step(&mut self) {
-        self.cycle();
-        while self.cpu.tcu != 1 {
-            self.cycle();
-        }
-    }
-
-    pub fn cycle(&mut self) {
-        self.cycle_count = self.cycle_count.wrapping_add(1);
-        if self.cycle_count % CYCLES_PER_EPOCH == 0 {
-            let now = Instant::now();
-            self.avg_nanos_per_epoch = ((self.avg_nanos_per_epoch * (WINDOW_SIZE - 1)) / WINDOW_SIZE) + (now.duration_since(self.epoch_start).as_nanos() as u64);
-            self.epoch_start = now;
-        }
-
-        self.cpu.cycle();
+        let cycle_schedule = self.start_timer();
+        self.step_next();
+        drop(cycle_schedule);
     }
 
     pub fn step_over(&mut self) {
@@ -59,12 +54,14 @@ impl System {
             self.run();
             self.breakpoints.pop();
         } else {
-            self.step();
+            self.step_next();
         }
     }
 
     pub fn step_out(&mut self) {
         let mut depth: i32 = 0;
+
+        let cycle_schedule = self.start_timer();
 
         loop {
             match self.cpu.ir.0 {
@@ -73,7 +70,7 @@ impl System {
                 _ => {}
             }
 
-            self.step();
+            self.step_next();
 
             if self.cpu.is_halted() {
                 break;
@@ -83,11 +80,15 @@ impl System {
                 break;
             }
         }
+
+        drop(cycle_schedule);
     }
 
     pub fn run_headless(&mut self) {
+        let cycle_schedule = self.start_timer();
+
         loop {
-            self.step();
+            self.step_next();
 
             {
                 if self.cpu.is_halted() {
@@ -102,12 +103,17 @@ impl System {
                 }
             }
         }
+
+        drop(cycle_schedule);
     }
+
 
     pub fn run(&mut self) {
         let mut stdout = stdout().into_raw_mode().unwrap();
         let mut stdin = termion::async_stdin_until(0x1B);
         let mut buffer = [0u8; 8];
+
+        let cycle_schedule = self.start_timer();
 
         write!(stdout, "{}", termion::cursor::Hide).unwrap();
 
@@ -126,7 +132,7 @@ impl System {
 
         self.epoch_start = Instant::now();
         loop {
-            self.step();
+            self.step_next();
 
             match stdin.read(&mut buffer) {
                 Ok(1) => {
@@ -178,6 +184,8 @@ impl System {
         )
         .unwrap();
         stdout.flush().unwrap();
+
+        drop(cycle_schedule);
     }
 
     pub fn list_breakpoints(&self) {
@@ -254,6 +262,44 @@ impl System {
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr.get(), per.ier
         );
+    }
+
+    fn start_timer(&mut self) -> timer::Guard {
+        *self.cycle_gate.1.lock().unwrap() = 0;
+
+        let cycle_gate = self.cycle_gate.clone();
+        self.timer.schedule_repeating(Duration::nanoseconds(CYCLE_NANOSECONDS as i64), move || {
+            let (cond, mutex) = &*cycle_gate.clone();
+            *mutex.lock().unwrap() += 1;
+            cond.notify_all();
+        })
+    }
+
+    fn step_next(&mut self) {
+        self.cycle();
+        while self.cpu.tcu != 1 {
+            self.cycle();
+        }
+    }
+
+    fn cycle(&mut self) {
+        self.cycle_count = self.cycle_count.wrapping_add(1);
+        if self.cycle_count % CYCLES_PER_EPOCH == 0 {
+            let now = Instant::now();
+            self.avg_nanos_per_epoch = ((self.avg_nanos_per_epoch * (WINDOW_SIZE - 1)) / WINDOW_SIZE) + (now.duration_since(self.epoch_start).as_nanos() as u64);
+            self.epoch_start = now;
+        }
+
+        let (cond, mutex) = &*self.cycle_gate;
+        let _ = cond.wait_while(mutex.lock().unwrap(), |c| {
+            if *c == 0 {
+                true
+            } else {
+                *c -= 1;
+                false
+            }
+        }).unwrap();
+        self.cpu.cycle();
     }
 
     fn read_symbols(&mut self, path: &str) {
