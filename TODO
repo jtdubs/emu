@@ -1,7 +1,6 @@
 TODO:
 - Better command-line invocation
 - Better error handling (less panics)
-- Lower overhead method for controlling frequency...
 
 Timing history:
 - Initial speed: 3.8MHz
@@ -9,3 +8,4 @@ Timing history:
 - Amortize timing measurements: 20MHz
 - Misc tiny tweaks: 20MHz
 - Re-write: 33MHz
+- Timer: 1.00MHz
