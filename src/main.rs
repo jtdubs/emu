@@ -8,7 +8,7 @@ use system::System;
 fn main() {
     env_logger::init();
 
-    let mut sys = System::new("../6502/rom/bin/rom.bin", "../6502/rom/bin/rom.sym");
+    let mut sys = System::new("rom.bin", "rom.sym");
     let mut last_command: Option<String> = None;
 
     // sys.run();
