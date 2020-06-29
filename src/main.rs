@@ -40,6 +40,9 @@ fn main() {
                 sys.show_cpu();
                 sys.show_per();
             }
+            "bench" => {
+                sys.bench();
+            }
             "headless" | "head" | "rh" => {
                 sys.run_headless();
                 sys.show_cpu();
@@ -73,7 +76,7 @@ fn main() {
             "stack" | "sta" => sys.show_stack(),
             "ram" | "mem" | "m" => sys.show_ram(),
             "display" | "dsp" | "d" => sys.show_dsp(),
-            "quit" | "q" => {
+            "quit" | "q" | "exit" => {
                 return;
             }
             "" => {}

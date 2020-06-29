@@ -27,6 +27,7 @@ pub struct System {
     pub avg_nanos_per_epoch: u64,
     pub timer: Timer,
     pub cycle_gate: Arc<(Condvar, Mutex<u32>)>,
+    pub bench: bool
 }
 
 impl System {
@@ -41,6 +42,7 @@ impl System {
             avg_nanos_per_epoch: CYCLES_PER_EPOCH * WINDOW_SIZE * CYCLE_NANOSECONDS,
             timer: Timer::new(),
             cycle_gate: Arc::new((Condvar::new(), Mutex::new(0))),
+            bench: false,
         };
 
         sys.read_symbols(sym_path);
@@ -109,6 +111,12 @@ impl System {
         drop(cycle_schedule);
     }
 
+    pub fn bench(&mut self) {
+        self.bench = true;
+        self.run();
+        self.bench = false;
+    }
+
     pub fn run(&mut self) {
         let mut stdout = stdout();
         let cycle_schedule = self.start_timer();
@@ -127,6 +135,12 @@ impl System {
             if thread_key_exit.load(Ordering::Relaxed) {
                 break;
             }
+        });
+
+        let fps_refresh = Arc::new(AtomicBool::new(false));
+        let fps_refresh_copy = fps_refresh.clone();
+        let fps_schedule = self.timer.schedule_repeating(Duration::seconds(1), move || {
+            fps_refresh_copy.store(true, Ordering::Release);
         });
 
         execute!(stdout, cursor::Hide).unwrap();
@@ -172,7 +186,8 @@ impl System {
             }
 
             let dsp = &mut self.cpu.per.ada.dsp;
-            if dsp.get_updated() {
+            if dsp.get_updated() || fps_refresh.load(Ordering::Acquire) {
+                fps_refresh.store(false, Ordering::Release);
                 let (line1, line2) = dsp.get_output();
                 execute!(
                     stdout,
@@ -200,6 +215,7 @@ impl System {
         .unwrap();
 
         drop(cycle_schedule);
+        drop(fps_schedule);
         key_exit.store(true, Ordering::Release)
     }
 
@@ -315,17 +331,20 @@ impl System {
             self.epoch_start = now;
         }
 
-        let (cond, mutex) = &*self.cycle_gate;
-        let _ = cond
-            .wait_while(mutex.lock().unwrap(), |c| {
-                if *c == 0 {
-                    true
-                } else {
-                    *c -= 1;
-                    false
-                }
-            })
-            .unwrap();
+        if ! self.bench {
+            let (cond, mutex) = &*self.cycle_gate;
+            let _ = cond
+                .wait_while(mutex.lock().unwrap(), |c| {
+                    if *c == 0 {
+                        true
+                    } else {
+                        *c -= 1;
+                        false
+                    }
+                })
+                .unwrap();
+        }
+
         self.cpu.cycle();
     }
 
