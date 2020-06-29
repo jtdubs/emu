@@ -1,9 +1,14 @@
-use std::collections::HashMap;
-use std::io::{stdout, Read, Write};
-use std::time::Instant;
-use std::sync::{Condvar, Mutex, Arc};
-use termion::raw::IntoRawMode;
 use chrono::Duration;
+use crossterm::{cursor, terminal, execute, style::Print, event};
+use std::collections::HashMap;
+use std::io::{stdout, Write};
+use std::sync::mpsc::channel;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Condvar, Mutex,
+};
+use std::thread;
+use std::time::Instant;
 use timer::Timer;
 
 use crate::components::*;
@@ -95,10 +100,7 @@ impl System {
                     break;
                 }
 
-                if self
-                    .breakpoints
-                    .contains(&(self.cpu.pc - 1))
-                {
+                if self.breakpoints.contains(&(self.cpu.pc - 1)) {
                     break;
                 }
             }
@@ -107,44 +109,57 @@ impl System {
         drop(cycle_schedule);
     }
 
-
     pub fn run(&mut self) {
-        let mut stdout = stdout().into_raw_mode().unwrap();
-        let mut stdin = termion::async_stdin_until(0x1B);
-        let mut buffer = [0u8; 8];
-
+        let mut stdout = stdout();
         let cycle_schedule = self.start_timer();
 
-        write!(stdout, "{}", termion::cursor::Hide).unwrap();
+        let (key_send, key_recv) = channel();
+        let key_exit = Arc::new(AtomicBool::new(false));
+        let thread_key_exit = key_exit.clone();
+        thread::spawn(move || loop {
+            if let Ok(true) = event::poll(std::time::Duration::from_millis(10)) {
+                let e = event::read().unwrap();
+                if key_send.send(e).is_err() {
+                    break;
+                }
+            }
+
+            if thread_key_exit.load(Ordering::Relaxed) {
+                break;
+            }
+        });
+
+        execute!(stdout, cursor::Hide).unwrap();
 
         {
             let (line1, line2) = self.cpu.per.ada.dsp.get_output();
-            write!(
+            execute!(
                 stdout,
-                "┌────────────────┐\r\n│{}│\r\n│{}│\r\n└────────────────┘\r\n>\r{}",
-                line1,
-                line2,
-                termion::cursor::Up(3)
+                Print(format!(
+                    "┌────────────────┐\r\n│{}|\r\n|{}|\r\n└────────────────┘\r\n>\r",
+                    line1, line2
+                )),
+                cursor::MoveUp(3)
             )
             .unwrap();
-            stdout.flush().unwrap();
         }
 
         self.epoch_start = Instant::now();
         loop {
             self.step_next();
 
-            match stdin.read(&mut buffer) {
-                Ok(1) => {
-                    if buffer[0] == 0x1B {
-                        break;
-                    } else {
-                        self.cpu.per.con.on_key(buffer[0] as char);
-                    }
-                }
-                Ok(_) => {}
-                Err(_) => {
-                    break;
+            if let Ok(event) = key_recv.try_recv() {
+                match event {
+                    event::Event::Key(key_event) => match key_event.code {
+                        event::KeyCode::Esc => {
+                            break;
+                        }
+                        event::KeyCode::Char(c) => {
+                            self.cpu.per.con.on_key(c);
+                        }
+                        _ => {}
+                    },
+                    _ => {}
                 }
             }
 
@@ -152,40 +167,40 @@ impl System {
                 break;
             }
 
-            if self
-                .breakpoints
-                .contains(&(self.cpu.pc - 1))
-            {
+            if self.breakpoints.contains(&(self.cpu.pc - 1)) {
                 break;
             }
 
             let dsp = &mut self.cpu.per.ada.dsp;
             if dsp.get_updated() {
                 let (line1, line2) = dsp.get_output();
-                write!(
+                execute!(
                     stdout,
-                    "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns){}\r{}",
-                    line1,
-                    line2,
-                    1000.0 / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
-                    self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE),
-                    termion::clear::AfterCursor,
-                    termion::cursor::Up(3),
+                    Print(format!(
+                        "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns)",
+                        line1,
+                        line2,
+                        1000.0
+                            / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                        self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
+                    )),
+                    terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
+                    cursor::MoveToColumn(0),
+                    cursor::MoveUp(3)
                 )
                 .unwrap();
             }
         }
 
-        write!(
+        execute!(
             stdout,
-            "{}{}\n",
-            termion::cursor::Show,
-            termion::cursor::Down(3)
+            cursor::Show,
+            cursor::MoveDown(3)
         )
         .unwrap();
-        stdout.flush().unwrap();
 
         drop(cycle_schedule);
+        key_exit.store(true, Ordering::Release)
     }
 
     pub fn list_breakpoints(&self) {
@@ -260,7 +275,14 @@ impl System {
         let per = &self.cpu.per;
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
-            per.ora, per.ddra, per.orb, per.ddrb, per.t1c, per.t1l, per.ifr.get(), per.ier
+            per.ora,
+            per.ddra,
+            per.orb,
+            per.ddrb,
+            per.t1c,
+            per.t1l,
+            per.ifr.get(),
+            per.ier
         );
     }
 
@@ -268,11 +290,12 @@ impl System {
         *self.cycle_gate.1.lock().unwrap() = 0;
 
         let cycle_gate = self.cycle_gate.clone();
-        self.timer.schedule_repeating(Duration::nanoseconds(CYCLE_NANOSECONDS as i64), move || {
-            let (cond, mutex) = &*cycle_gate.clone();
-            *mutex.lock().unwrap() += 1;
-            cond.notify_all();
-        })
+        self.timer
+            .schedule_repeating(Duration::nanoseconds(CYCLE_NANOSECONDS as i64), move || {
+                let (cond, mutex) = &*cycle_gate.clone();
+                *mutex.lock().unwrap() += 1;
+                cond.notify_all();
+            })
     }
 
     fn step_next(&mut self) {
@@ -286,19 +309,23 @@ impl System {
         self.cycle_count = self.cycle_count.wrapping_add(1);
         if self.cycle_count % CYCLES_PER_EPOCH == 0 {
             let now = Instant::now();
-            self.avg_nanos_per_epoch = ((self.avg_nanos_per_epoch * (WINDOW_SIZE - 1)) / WINDOW_SIZE) + (now.duration_since(self.epoch_start).as_nanos() as u64);
+            self.avg_nanos_per_epoch = ((self.avg_nanos_per_epoch * (WINDOW_SIZE - 1))
+                / WINDOW_SIZE)
+                + (now.duration_since(self.epoch_start).as_nanos() as u64);
             self.epoch_start = now;
         }
 
         let (cond, mutex) = &*self.cycle_gate;
-        let _ = cond.wait_while(mutex.lock().unwrap(), |c| {
-            if *c == 0 {
-                true
-            } else {
-                *c -= 1;
-                false
-            }
-        }).unwrap();
+        let _ = cond
+            .wait_while(mutex.lock().unwrap(), |c| {
+                if *c == 0 {
+                    true
+                } else {
+                    *c -= 1;
+                    false
+                }
+            })
+            .unwrap();
         self.cpu.cycle();
     }
 
