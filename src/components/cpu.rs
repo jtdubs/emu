@@ -3,7 +3,7 @@ use std::fmt;
 
 use crate::components::{BusArbiter, BusOperation};
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum CPUState {
     Init(u8),
     Run,
@@ -11,7 +11,7 @@ pub enum CPUState {
     Halt,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AddressMode {
     Absolute,                     // a
     AbsoluteIndexedIndirect,      // (a,x)
@@ -31,7 +31,7 @@ pub enum AddressMode {
     ZeroPageIndirectIndexedWithY, // (zp),y
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Instruction {
     ADC,
     AND,

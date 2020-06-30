@@ -57,8 +57,8 @@ impl Debugger {
     }
 
     pub fn step_over(&mut self) {
-        if self.sys.cpu.ir.0 == cpu::Instruction::JSR {
-            self.breakpoints.push(self.sys.cpu.pc + 2);
+        if self.sys.get_cpu().ir.0 == cpu::Instruction::JSR {
+            self.breakpoints.push(self.sys.get_cpu().pc + 2);
             self.run();
             self.breakpoints.pop();
         } else {
@@ -72,7 +72,7 @@ impl Debugger {
         let cycle_schedule = self.start_timer();
 
         loop {
-            match self.sys.cpu.ir.0 {
+            match self.sys.get_cpu().ir.0 {
                 cpu::Instruction::JSR => depth += 1,
                 cpu::Instruction::RTS => depth -= 1,
                 _ => {}
@@ -80,7 +80,7 @@ impl Debugger {
 
             self.step_next();
 
-            if self.sys.cpu.is_halted() {
+            if self.sys.is_halted() {
                 break;
             }
 
@@ -99,11 +99,11 @@ impl Debugger {
             self.step_next();
 
             {
-                if self.sys.cpu.is_halted() {
+                if self.sys.is_halted() {
                     break;
                 }
 
-                if self.breakpoints.contains(&(self.sys.cpu.pc - 1)) {
+                if self.breakpoints.contains(&(self.sys.get_cpu().pc - 1)) {
                     break;
                 }
             }
@@ -147,7 +147,7 @@ impl Debugger {
         execute!(stdout, cursor::Hide).unwrap();
 
         {
-            let (line1, line2) = self.sys.bus.per.ada.dsp.get_output();
+            let (line1, line2) = self.sys.get_display().get_output();
             execute!(
                 stdout,
                 Print(format!(
@@ -170,7 +170,7 @@ impl Debugger {
                             break;
                         }
                         event::KeyCode::Char(c) => {
-                            self.sys.bus.per.con.on_key(c);
+                            self.sys.get_controller().on_key(c);
                         }
                         _ => {}
                     },
@@ -178,18 +178,17 @@ impl Debugger {
                 }
             }
 
-            if self.sys.cpu.is_halted() {
+            if self.sys.is_halted() {
                 break;
             }
 
-            if self.breakpoints.contains(&(self.sys.cpu.pc - 1)) {
+            if self.breakpoints.contains(&(self.sys.get_cpu().pc - 1)) {
                 break;
             }
 
-            let dsp = &mut self.sys.bus.per.ada.dsp;
-            if dsp.get_updated() || fps_refresh.load(Ordering::Acquire) {
+            if self.sys.get_display().get_updated() || fps_refresh.load(Ordering::Acquire) {
                 fps_refresh.store(false, Ordering::Release);
-                let (line1, line2) = dsp.get_output();
+                let (line1, line2) = self.sys.get_display().get_output();
                 execute!(
                     stdout,
                     Print(format!(
@@ -255,32 +254,36 @@ impl Debugger {
     }
 
     pub fn show_cpu(&mut self) {
-        print!("<{}> {:04x}: ", get_flag_string(self.sys.cpu.p), self.sys.cpu.pc);
+        let cpu = self.sys.get_cpu();
+        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc);
+
         self.show_instruction();
+
+        let cpu = self.sys.get_cpu();
         println!();
         println!(
             "A:{:02x}       X:{:02x}       Y:{:02x}          S:{:02x}",
-            self.sys.cpu.a, self.sys.cpu.x, self.sys.cpu.y, self.sys.cpu.s
+            cpu.a, cpu.x, cpu.y, cpu.s
         );
     }
 
     pub fn show_zp(&self) {
-        let slice = &self.sys.bus.ram.mem[0..0x100];
+        let slice = &self.sys.get_ram().mem[0..0x100];
         show_bytes(slice, 0);
     }
 
     pub fn show_stack(&self) {
-        let slice = &self.sys.bus.ram.mem[0x100..0x200];
+        let slice = &self.sys.get_ram().mem[0x100..0x200];
         show_bytes(slice, 0x100);
     }
 
     pub fn show_ram(&self) {
-        let slice = &self.sys.bus.ram.mem[0x200..];
+        let slice = &self.sys.get_ram().mem[0x200..];
         show_bytes(slice, 0x200);
     }
 
-    pub fn show_dsp(&self) {
-        let (line1, line2) = self.sys.bus.per.ada.dsp.get_output();
+    pub fn show_dsp(&mut self) {
+        let (line1, line2) = self.sys.get_display().get_output();
 
         println!("┌────────────────┐");
         println!("│{}│", line1);
@@ -289,7 +292,7 @@ impl Debugger {
     }
 
     pub fn show_per(&self) {
-        let per = &self.sys.bus.per;
+        let per = self.sys.get_peripheral_controller();
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora,
@@ -317,7 +320,7 @@ impl Debugger {
 
     fn step_next(&mut self) {
         self.cycle();
-        while self.sys.cpu.tcu != 1 {
+        while self.sys.get_cpu().tcu != 1 {
             self.cycle();
         }
     }
@@ -362,11 +365,13 @@ impl Debugger {
     }
 
     fn show_instruction(&mut self) {
-        let (opcode, address_mode) = &self.sys.cpu.ir;
-        let pc = self.sys.cpu.pc;
+        let cpu = self.sys.get_cpu();
+
+        let (opcode, address_mode) = cpu.ir;
+        let pc = cpu.pc;
         
-        let arg8 = self.sys.bus.bus(BusOperation::Peek(pc));
-        let arg16 = (arg8 as u16) | ((self.sys.bus.bus(BusOperation::Peek(pc+1)) as u16) << 8);
+        let arg8 = self.sys.peek(pc);
+        let arg16 = (arg8 as u16) | ((self.sys.peek(pc+1) as u16) << 8);
 
         let sym = if let Some(s) = self.addr2sym.get(&arg16) {
             s.clone()

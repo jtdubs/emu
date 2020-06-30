@@ -1,8 +1,8 @@
 use crate::components::*;
 
 pub struct System {
-    pub cpu: W65C02S,
-    pub bus: BusMembers,
+    cpu: W65C02S,
+    bus: BusMembers,
 }
 
 impl System {
@@ -13,19 +13,33 @@ impl System {
         }
     }
 
-    /*
-    pub fn get_pc(&self) -> u16 {
-        self.cpu.pc
-    }
-    
-    pub fn get_current_instruction(&self) -> cpu::Instruction {
-        self.cpu.ir.0
+    pub fn is_halted(&self) -> bool {
+        self.cpu.is_halted()
     }
 
+    pub fn get_cpu(&self) -> &W65C02S {
+        &self.cpu
+    }
+
+    pub fn get_display(&mut self) -> &mut HD44780U {
+        &mut self.bus.per.ada.dsp
+    }
+
+    pub fn get_ram(&self) -> &RAM {
+        &self.bus.ram
+    }
+
+    pub fn get_controller(&mut self) -> &mut SNESController {
+        &mut self.bus.per.con
+    }
+
+    pub fn get_peripheral_controller(&self) -> &W65C22 {
+        &self.bus.per
+    }
+    
     pub fn peek(&mut self, addr : u16) -> u8 {
         self.bus.bus(BusOperation::Peek(addr))
     }
-    */
 
     pub fn cycle(&mut self) {
         self.cpu.cycle(&mut self.bus);
