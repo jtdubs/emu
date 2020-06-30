@@ -22,7 +22,7 @@ impl System {
     }
 
     pub fn get_display(&mut self) -> &mut HD44780U {
-        &mut self.bus.pers.ada.dsp
+        &mut self.bus.pers.dsp
     }
 
     pub fn get_ram(&self) -> &RAM {
@@ -44,60 +44,7 @@ impl System {
     pub fn cycle(&mut self) {
         self.cpu.cycle(&mut self.bus);
         self.cpu.set_interrupt(self.bus.per.cycle());
-        self.bus.pers.ada.cycle();
-    }
-}
-
-pub struct Peripherals {
-    pub ada: HD44780UAdapter,
-    pub con: SNESController,
-}
-
-impl Peripherals {
-    pub fn new() -> Peripherals {
-        Peripherals {
-            ada: HD44780UAdapter::new(),
-            con: SNESController::new(),
-        }
-    }
-}
-
-impl PortArbiter for Peripherals {
-    fn port(&mut self, op: PortOperation) -> u8 {
-        match op {
-            PortOperation::Read(port) => {
-                match port {
-                    Port::A => {
-                        (self.ada.peek(Port::A) & 0xE0) | (self.con.peek(Port::A) & 0x07)
-                    }
-                    Port::B => {
-                        self.ada.peek(Port::B)
-                    }
-                }
-            }
-            PortOperation::Peek(port) => {
-                match port {
-                    Port::A => {
-                        (self.ada.read(Port::A) & 0xE0) | (self.con.read(Port::A) & 0x07)
-                    }
-                    Port::B => {
-                        self.ada.read(Port::B)
-                    }
-                }
-            }
-            PortOperation::Write(port, val) => {
-                match port {
-                    Port::A => {
-                        self.ada.write(Port::A, val & 0xE0);
-                        self.con.write(Port::A, val & 0x07);
-                    }
-                    Port::B => {
-                        self.ada.write(Port::B, val);
-                    }
-                }
-                val
-            }
-        }
+        self.bus.pers.dsp.cycle();
     }
 }
 
@@ -155,6 +102,86 @@ impl BusArbiter for BusMembers {
                 } else {
                     panic!("peek at unmapped address: {:02x}", addr);
                 }
+            }
+        }
+    }
+}
+
+pub struct Peripherals {
+    pub dsp: HD44780U,
+    pub con: SNESController,
+    pub a_cache: u8,
+    pub b_cache: u8,
+}
+
+const RS: u8 = 0x20;
+const RW: u8 = 0x40;
+const E: u8 = 0x80;
+
+impl Peripherals {
+    pub fn new() -> Peripherals {
+        Peripherals {
+            dsp: HD44780U::new(),
+            con: SNESController::new(),
+            a_cache: 0,
+            b_cache: 0,
+        }
+    }
+
+    fn get_control(&self, a: u8) -> (RegisterSelector, bool, bool) {
+        (
+            if a & RS == RS {
+                RegisterSelector::Data
+            } else {
+                RegisterSelector::Instruction
+            },
+            a & RW == RW,
+            a & E == E,
+        )
+    }
+}
+
+impl PortArbiter for Peripherals {
+    fn port(&mut self, op: PortOperation) -> u8 {
+        match op {
+            PortOperation::Read(port) => {
+                match port {
+                    Port::A => {
+                        (0u8 & 0xE0) | (self.con.read(Port::A) & 0x07)
+                    }
+                    Port::B => {
+                        self.dsp.read(self.get_control(self.a_cache).0)
+                    }
+                }
+            }
+            PortOperation::Peek(port) => {
+                match port {
+                    Port::A => {
+                        (0u8 & 0xE0) | (self.con.peek(Port::A) & 0x07)
+                    }
+                    Port::B => {
+                        self.dsp.peek(self.get_control(self.a_cache).0)
+                    }
+                }
+            }
+            PortOperation::Write(port, val) => {
+                match port {
+                    Port::A => {
+                        let dsp_val = val & 0xE0;
+                        match (self.get_control(self.a_cache).2, self.get_control(dsp_val).2) {
+                            (true, false) => {
+                                self.dsp.write(self.get_control(dsp_val).0, self.b_cache);
+                            }
+                            _ => {}
+                        }
+                        self.a_cache = dsp_val;
+                        self.con.write(Port::A, val & 0x07);
+                    }
+                    Port::B => {
+                        self.b_cache = val;
+                    }
+                }
+                val
             }
         }
     }

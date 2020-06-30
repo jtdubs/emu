@@ -2,8 +2,6 @@ use log::{debug, info};
 use std::fmt;
 use std::iter::FromIterator;
 
-use crate::components::periph;
-
 #[derive(Debug)]
 pub enum State {
     Idle,
@@ -193,75 +191,5 @@ impl HD44780U {
             State::Busy(0) => State::Idle,
             State::Busy(c) => State::Busy(c - 1),
         };
-    }
-}
-
-#[derive(Debug)]
-pub struct HD44780UAdapter {
-    pub a_cache: u8,
-    pub b_cache: u8,
-    pub dsp: HD44780U,
-}
-
-const RS: u8 = 0x20;
-const RW: u8 = 0x40;
-const E: u8 = 0x80;
-
-fn get_control(a: u8) -> (RegisterSelector, bool, bool) {
-    (
-        if a & RS == RS {
-            RegisterSelector::Data
-        } else {
-            RegisterSelector::Instruction
-        },
-        a & RW == RW,
-        a & E == E,
-    )
-}
-
-impl HD44780UAdapter {
-    pub fn new() -> HD44780UAdapter {
-        HD44780UAdapter {
-            a_cache: 0,
-            b_cache: 0,
-            dsp: HD44780U::new(),
-        }
-    }
-
-    pub fn peek(&self, p: periph::Port) -> u8 {
-        match p {
-            periph::Port::A => 0u8,
-            periph::Port::B => self.dsp.peek(get_control(self.a_cache).0),
-        }
-    }
-
-    pub fn read(&self, p: periph::Port) -> u8 {
-        debug!("R {:?}", p);
-
-        match p {
-            periph::Port::A => 0u8,
-            periph::Port::B => self.dsp.read(get_control(self.a_cache).0),
-        }
-    }
-
-    pub fn write(&mut self, p: periph::Port, val: u8) {
-        match p {
-            periph::Port::A => {
-                match (get_control(self.a_cache).2, get_control(val).2) {
-                    (true, false) => {
-                        self.dsp.write(get_control(val).0, self.b_cache);
-                    }
-                    _ => {}
-                }
-                self.a_cache = val;
-            }
-            periph::Port::B => {
-                self.b_cache = val;
-            }
-        }
-    }
-
-    pub fn cycle(&mut self) {
-        self.dsp.cycle();
     }
 }
