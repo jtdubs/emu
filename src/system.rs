@@ -19,6 +19,7 @@ const WINDOW_SIZE: u64 = 200;
 
 pub struct System {
     pub cpu: W65C02S,
+    pub bus: BusMembers,
     pub breakpoints: Vec<u16>,
     pub sym2addr: HashMap<String, u16>,
     pub addr2sym: HashMap<u16, String>,
@@ -33,7 +34,8 @@ pub struct System {
 impl System {
     pub fn new(rom_path: &str, sym_path: &str) -> System {
         let mut sys = System {
-            cpu: W65C02S::new(rom_path),
+            cpu: W65C02S::new(),
+            bus: BusMembers::new(rom_path),
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
             addr2sym: HashMap::new(),
@@ -146,7 +148,7 @@ impl System {
         execute!(stdout, cursor::Hide).unwrap();
 
         {
-            let (line1, line2) = self.cpu.per.ada.dsp.get_output();
+            let (line1, line2) = self.bus.per.ada.dsp.get_output();
             execute!(
                 stdout,
                 Print(format!(
@@ -169,7 +171,7 @@ impl System {
                             break;
                         }
                         event::KeyCode::Char(c) => {
-                            self.cpu.per.con.on_key(c);
+                            self.bus.per.con.on_key(c);
                         }
                         _ => {}
                     },
@@ -185,7 +187,7 @@ impl System {
                 break;
             }
 
-            let dsp = &mut self.cpu.per.ada.dsp;
+            let dsp = &mut self.bus.per.ada.dsp;
             if dsp.get_updated() || fps_refresh.load(Ordering::Acquire) {
                 fps_refresh.store(false, Ordering::Release);
                 let (line1, line2) = dsp.get_output();
@@ -253,9 +255,9 @@ impl System {
         self.breakpoints.remove(ix);
     }
 
-    pub fn show_cpu(&self) {
+    pub fn show_cpu(&mut self) {
         print!("<{}> {:04x}: ", get_flag_string(self.cpu.p), self.cpu.pc);
-        self.show_instruction(&self.cpu);
+        self.show_instruction();
         println!();
         println!(
             "A:{:02x}       X:{:02x}       Y:{:02x}          S:{:02x}",
@@ -264,22 +266,22 @@ impl System {
     }
 
     pub fn show_zp(&self) {
-        let slice = &self.cpu.ram.mem[0..0x100];
+        let slice = &self.bus.ram.mem[0..0x100];
         show_bytes(slice, 0);
     }
 
     pub fn show_stack(&self) {
-        let slice = &self.cpu.ram.mem[0x100..0x200];
+        let slice = &self.bus.ram.mem[0x100..0x200];
         show_bytes(slice, 0x100);
     }
 
     pub fn show_ram(&self) {
-        let slice = &self.cpu.ram.mem[0x200..];
+        let slice = &self.bus.ram.mem[0x200..];
         show_bytes(slice, 0x200);
     }
 
     pub fn show_dsp(&self) {
-        let (line1, line2) = self.cpu.per.ada.dsp.get_output();
+        let (line1, line2) = self.bus.per.ada.dsp.get_output();
 
         println!("┌────────────────┐");
         println!("│{}│", line1);
@@ -288,7 +290,7 @@ impl System {
     }
 
     pub fn show_per(&self) {
-        let per = &self.cpu.per;
+        let per = &self.bus.per;
         println!(
             "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
             per.ora,
@@ -345,7 +347,10 @@ impl System {
                 .unwrap();
         }
 
-        self.cpu.cycle();
+        self.cpu.cycle(&mut self.bus);
+        if self.bus.per.cycle() {
+            self.cpu.interrupt();
+        }
     }
 
     fn read_symbols(&mut self, path: &str) {
@@ -360,11 +365,12 @@ impl System {
         }
     }
 
-    fn show_instruction(&self, cpu: &W65C02S) {
-        let (opcode, address_mode) = &cpu.ir;
-
-        let arg8 = cpu.peek(cpu.pc);
-        let arg16 = (arg8 as u16) | ((cpu.peek(cpu.pc + 1) as u16) << 8);
+    fn show_instruction(&mut self) {
+        let (opcode, address_mode) = &self.cpu.ir;
+        let pc = self.cpu.pc;
+        
+        let arg8 = self.bus.bus(BusOperation::Peek(pc));
+        let arg16 = (arg8 as u16) | ((self.bus.bus(BusOperation::Peek(pc+1)) as u16) << 8);
 
         let sym = if let Some(s) = self.addr2sym.get(&arg16) {
             s.clone()
@@ -452,5 +458,62 @@ fn show_bytes(source: &[u8], offset: usize) {
         }
 
         println!("");
+    }
+}
+
+pub struct BusMembers {
+    pub per: W65C22,
+    pub ram: RAM,
+    pub rom: ROM,
+}
+
+impl BusMembers {
+    pub fn new(rom_path : &str) -> BusMembers {
+        BusMembers {
+            rom: ROM::load(rom_path),
+            ram: RAM::new(0x4000),
+            per: W65C22::new(),
+        }
+    }
+}
+
+impl BusArbiter for BusMembers {
+    fn bus(&mut self, op : BusOperation) -> u8 {
+        match op {
+            BusOperation::Read(addr) => {
+                if addr & 0x8000 == 0x8000 {
+                    self.rom.read(addr & !0x8000)
+                } else if addr & 0xC000 == 0x0000 {
+                    self.ram.read(addr & !0xC000)
+                } else if addr & 0xFFF0 == 0x6000 {
+                    self.per.read(addr & !0xFFF0)
+                } else {
+                    panic!("peek at unmapped address: {:02x}", addr);
+                }
+            }
+            BusOperation::Write(addr, val) => {
+                if addr & 0x8000 == 0x8000 {
+                    self.rom.write(addr & !0x8000, val);
+                } else if addr & 0xC000 == 0x0000 {
+                    self.ram.write(addr & !0xC000, val);
+                } else if addr & 0xFFF0 == 0x6000 {
+                    self.per.write(addr & !0xFFF0, val);
+                } else {
+                    panic!("peek at unmapped address: {:02x}", addr);
+                }
+                val
+            }
+            BusOperation::Peek(addr) => {
+                if addr & 0x8000 == 0x8000 {
+                    self.rom.peek(addr & !0x8000)
+                } else if addr & 0xC000 == 0x0000 {
+                    self.ram.peek(addr & !0xC000)
+                } else if addr & 0xFFF0 == 0x6000 {
+                    self.per.peek(addr & !0xFFF0)
+                } else {
+                    panic!("peek at unmapped address: {:02x}", addr);
+                }
+            }
+        }
     }
 }
