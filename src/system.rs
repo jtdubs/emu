@@ -43,9 +43,7 @@ impl System {
 
     pub fn cycle(&mut self) {
         self.cpu.cycle(&mut self.bus);
-        if self.bus.per.cycle() {
-            self.cpu.interrupt();
-        }
+        self.cpu.set_interrupt(self.bus.per.cycle());
     }
 }
 

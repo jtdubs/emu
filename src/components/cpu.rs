@@ -1804,7 +1804,7 @@ impl W65C02S {
         }
     }
 
-    pub fn interrupt(&mut self) {
-        self.interrupt = true;
+    pub fn set_interrupt(&mut self, val : bool) {
+        self.interrupt = val;
     }
 }
