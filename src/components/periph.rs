@@ -2,8 +2,6 @@ use log::debug;
 use std::cell::Cell;
 use std::fmt;
 
-use crate::components::{HD44780UAdapter, SNESController};
-
 #[derive(Debug)]
 pub enum Port {
     A,
@@ -13,6 +11,17 @@ pub enum Port {
 #[derive(Debug)]
 enum Interrupts {
     T1 = 0x40,
+}
+
+
+pub enum PortOperation {
+    Read(Port),
+    Write(Port, u8),
+    Peek(Port),
+}
+
+pub trait PortArbiter {
+    fn port(&mut self, op: PortOperation) -> u8;
 }
 
 #[allow(dead_code)]
@@ -29,8 +38,6 @@ pub struct W65C22 {
     pub pcr: u8,
     pub ifr: Cell<u8>,
     pub ier: u8,
-    pub ada: HD44780UAdapter,
-    pub con: SNESController,
 }
 
 impl fmt::Debug for W65C22 {
@@ -59,8 +66,6 @@ impl W65C22 {
             pcr: 0,
             ifr: Cell::new(0),
             ier: 0,
-            ada: HD44780UAdapter::new(),
-            con: SNESController::new(),
         }
     }
 
@@ -111,14 +116,12 @@ impl W65C22 {
             // TODO: if T1 is set in IER, raise the interrupt
         }
 
-        self.ada.cycle();
-
         (self.ifr.get() & self.ier) != 0
     }
 
-    pub fn peek(&self, addr: u16) -> u8 {
+    pub fn peek(&self, addr: u16, ports: &mut impl PortArbiter) -> u8 {
         match addr {
-            0x0 => (self.orb & self.ddrb) | (self.ada.peek(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (ports.port(PortOperation::Peek(Port::B)) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -147,16 +150,15 @@ impl W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (((self.ada.peek(Port::A) & 0xE0) | (self.con.peek(Port::A) & 0x07))
-                        & !self.ddra)
+                    | (ports.port(PortOperation::Peek(Port::A)) & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
     }
 
-    pub fn read(&self, addr: u16) -> u8 {
+    pub fn read(&self, addr: u16, ports: &mut impl PortArbiter) -> u8 {
         let data = match addr {
-            0x0 => (self.orb & self.ddrb) | (self.ada.read(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (ports.port(PortOperation::Read(Port::B)) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -191,8 +193,7 @@ impl W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (((self.ada.read(Port::A) & 0xE0) | (self.con.read(Port::A) & 0x07))
-                        & !self.ddra)
+                    | (ports.port(PortOperation::Read(Port::A)) & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         };
@@ -200,12 +201,12 @@ impl W65C22 {
         data
     }
 
-    pub fn write(&mut self, addr: u16, data: u8) {
+    pub fn write(&mut self, addr: u16, data: u8, ports: &mut impl PortArbiter) {
         debug!("W @ {:04x} = {:02x}", addr, data);
         match addr {
             0x0 => {
                 self.orb = data & self.ddrb;
-                self.ada.write(Port::B, self.orb);
+                ports.port(PortOperation::Write(Port::B, self.orb));
             }
             0x1 => {
                 unimplemented!("W65C22 - Access to ORA w/ handshake");
@@ -254,9 +255,7 @@ impl W65C22 {
             }
             0xF => {
                 self.ora = data & self.ddra;
-                let val = self.ora;
-                self.ada.write(Port::A, val & 0xE0);
-                self.con.write(Port::A, val & 0x07);
+                ports.port(PortOperation::Write(Port::A, self.ora));
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }

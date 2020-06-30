@@ -1,8 +1,6 @@
 use log::{debug, info};
 use std::fmt;
 
-use crate::components::{BusArbiter, BusOperation};
-
 #[derive(Clone, Copy, Debug)]
 pub enum CPUState {
     Init(u8),
@@ -381,6 +379,16 @@ pub enum CPUFlag {
     User = 0x20,
     Overflow = 0x40,
     Negative = 0x80,
+}
+
+pub enum BusOperation {
+    Read(u16),
+    Write(u16, u8),
+    Peek(u16),
+}
+
+pub trait BusArbiter {
+    fn bus(&mut self, op: BusOperation) -> u8;
 }
 
 pub struct W65C02S {
