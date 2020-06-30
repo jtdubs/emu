@@ -1,11 +1,11 @@
 use std::io::{self, Write};
 
 mod components;
-mod system;
 mod debugger;
+mod system;
 
-use system::System;
 use debugger::Debugger;
+use system::System;
 
 fn main() {
     env_logger::init();

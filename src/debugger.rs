@@ -1,5 +1,5 @@
 use chrono::Duration;
-use crossterm::{cursor, terminal, execute, style::Print, event};
+use crossterm::{cursor, event, execute, style::Print, terminal};
 use std::collections::HashMap;
 use std::io::{stdout, Write};
 use std::sync::mpsc::channel;
@@ -28,11 +28,11 @@ pub struct Debugger {
     pub avg_nanos_per_epoch: u64,
     pub timer: Timer,
     pub cycle_gate: Arc<(Condvar, Mutex<u32>)>,
-    pub bench: bool
+    pub bench: bool,
 }
 
 impl Debugger {
-    pub fn new(sys : System, sym_path: &str) -> Debugger {
+    pub fn new(sys: System, sym_path: &str) -> Debugger {
         let mut sys = Debugger {
             sys: sys,
             breakpoints: Vec::new(),
@@ -140,9 +140,11 @@ impl Debugger {
 
         let fps_refresh = Arc::new(AtomicBool::new(false));
         let fps_refresh_copy = fps_refresh.clone();
-        let fps_schedule = self.timer.schedule_repeating(Duration::seconds(1), move || {
-            fps_refresh_copy.store(true, Ordering::Release);
-        });
+        let fps_schedule = self
+            .timer
+            .schedule_repeating(Duration::seconds(1), move || {
+                fps_refresh_copy.store(true, Ordering::Release);
+            });
 
         execute!(stdout, cursor::Hide).unwrap();
 
@@ -207,12 +209,7 @@ impl Debugger {
             }
         }
 
-        execute!(
-            stdout,
-            cursor::Show,
-            cursor::MoveDown(3)
-        )
-        .unwrap();
+        execute!(stdout, cursor::Show, cursor::MoveDown(3)).unwrap();
 
         drop(cycle_schedule);
         drop(fps_schedule);
@@ -335,7 +332,7 @@ impl Debugger {
             self.epoch_start = now;
         }
 
-        if ! self.bench {
+        if !self.bench {
             let (cond, mutex) = &*self.cycle_gate;
             let _ = cond
                 .wait_while(mutex.lock().unwrap(), |c| {
@@ -369,9 +366,9 @@ impl Debugger {
 
         let (opcode, address_mode) = cpu.ir;
         let pc = cpu.pc;
-        
+
         let arg8 = self.sys.peek(pc);
-        let arg16 = (arg8 as u16) | ((self.sys.peek(pc+1) as u16) << 8);
+        let arg16 = (arg8 as u16) | ((self.sys.peek(pc + 1) as u16) << 8);
 
         let sym = if let Some(s) = self.addr2sym.get(&arg16) {
             s.clone()

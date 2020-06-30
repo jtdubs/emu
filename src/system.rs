@@ -36,8 +36,8 @@ impl System {
     pub fn get_peripheral_controller(&self) -> &W65C22 {
         &self.bus.per
     }
-    
-    pub fn peek(&mut self, addr : u16) -> u8 {
+
+    pub fn peek(&mut self, addr: u16) -> u8 {
         self.bus.bus(BusOperation::Peek(addr))
     }
 
@@ -54,7 +54,7 @@ pub struct BusMembers {
 }
 
 impl BusMembers {
-    pub fn new(rom_path : &str) -> BusMembers {
+    pub fn new(rom_path: &str) -> BusMembers {
         BusMembers {
             rom: ROM::load(rom_path),
             ram: RAM::new(0x4000),
@@ -64,7 +64,7 @@ impl BusMembers {
 }
 
 impl BusArbiter for BusMembers {
-    fn bus(&mut self, op : BusOperation) -> u8 {
+    fn bus(&mut self, op: BusOperation) -> u8 {
         match op {
             BusOperation::Read(addr) => {
                 if addr & 0x8000 == 0x8000 {

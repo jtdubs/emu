@@ -384,18 +384,18 @@ pub enum CPUFlag {
 }
 
 pub struct W65C02S {
-    pub state: CPUState,  // cpu state
-    pub ir: Opcode,       // instruction register
-    pub tcu: u8,          // timing control unit
-    pub a: u8,            // accumulator register
-    pub x: u8,            // index register 'x'
-    pub y: u8,            // index register 'y'
-    pub p: u8,            // processor status register
-    pub pc: u16,          // program counter register
-    pub s: u8,            // stack pointer register
-    pub temp8: u8,        // temporary storage
-    pub temp16: u16,      // temporary storage
-    pub interrupt: bool,  // an interrupt is available
+    pub state: CPUState, // cpu state
+    pub ir: Opcode,      // instruction register
+    pub tcu: u8,         // timing control unit
+    pub a: u8,           // accumulator register
+    pub x: u8,           // index register 'x'
+    pub y: u8,           // index register 'y'
+    pub p: u8,           // processor status register
+    pub pc: u16,         // program counter register
+    pub s: u8,           // stack pointer register
+    pub temp8: u8,       // temporary storage
+    pub temp16: u16,     // temporary storage
+    pub interrupt: bool, // an interrupt is available
 }
 
 impl fmt::Debug for W65C02S {
@@ -441,29 +441,29 @@ impl W65C02S {
         }
     }
 
-    fn read(&self, bus : &mut impl BusArbiter, addr: u16) -> u8 {
+    fn read(&self, bus: &mut impl BusArbiter, addr: u16) -> u8 {
         bus.bus(BusOperation::Read(addr))
     }
 
-    fn write(&mut self, bus : &mut impl BusArbiter, addr: u16, val: u8) {
+    fn write(&mut self, bus: &mut impl BusArbiter, addr: u16, val: u8) {
         bus.bus(BusOperation::Write(addr, val));
     }
 
-    fn stack_push(&mut self, bus : &mut impl BusArbiter, val: u8) {
+    fn stack_push(&mut self, bus: &mut impl BusArbiter, val: u8) {
         self.write(bus, 0x0100 + (self.s as u16), val);
         self.s = self.s.wrapping_sub(1);
     }
 
-    fn stack_pop(&mut self, bus : &mut impl BusArbiter) -> u8 {
+    fn stack_pop(&mut self, bus: &mut impl BusArbiter) -> u8 {
         self.s = self.s.wrapping_add(1);
         self.read(bus, 0x0100 + (self.s as u16))
     }
 
-    fn stack_peek(&self, bus : &mut impl BusArbiter) -> u8 {
+    fn stack_peek(&self, bus: &mut impl BusArbiter) -> u8 {
         self.read(bus, 0x0100 + (self.s as u16))
     }
 
-    fn fetch(&mut self, bus : &mut impl BusArbiter) -> u8 {
+    fn fetch(&mut self, bus: &mut impl BusArbiter) -> u8 {
         let val = self.read(bus, self.pc);
         self.pc += 1;
         val
@@ -517,7 +517,7 @@ impl W65C02S {
         }
     }
 
-    fn branch(&mut self, bus : &mut impl BusArbiter, flag: CPUFlag, val: bool) {
+    fn branch(&mut self, bus: &mut impl BusArbiter, flag: CPUFlag, val: bool) {
         self.temp8 = self.fetch(bus);
         let f = flag as u8;
         if self.p & f == (if val { f } else { 0 }) {
@@ -527,7 +527,7 @@ impl W65C02S {
         }
     }
 
-    pub fn cycle(&mut self, bus : &mut impl BusArbiter) {
+    pub fn cycle(&mut self, bus: &mut impl BusArbiter) {
         debug!("CPU: {:x?}", self);
 
         match self.state {
@@ -1786,7 +1786,7 @@ impl W65C02S {
 
                     // Unimplemented
                     _ => {
-                        self.state = CPUState::Halt ;
+                        self.state = CPUState::Halt;
                         info!("CPU: {:x?}", self);
                         unimplemented!("Unimplemented opcode: {:?}, {:?}", self.ir, self.tcu);
                     }
@@ -1804,7 +1804,7 @@ impl W65C02S {
         }
     }
 
-    pub fn set_interrupt(&mut self, val : bool) {
+    pub fn set_interrupt(&mut self, val: bool) {
         self.interrupt = val;
     }
 }
