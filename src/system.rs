@@ -175,7 +175,10 @@ impl PortArbiter for Peripherals {
                             _ => {}
                         }
                         self.a_cache = dsp_val;
-                        self.con.write(val & 0x07);
+
+                        let con_latch = (val >> 1) & 1;
+                        let con_clk = (val >> 2) & 1;
+                        self.con.write(con_latch, con_clk);
                     }
                     Port::B => {
                         self.b_cache = val;

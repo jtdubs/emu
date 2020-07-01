@@ -15,7 +15,10 @@ pub enum Button {
 
 #[derive(Debug)]
 pub struct SNESController {
+    // count of unreported button presses
     pub events: HashMap<Button, i8>,
+
+    // current button to be shifted out
     pub cur_button: Button,
 }
 
@@ -78,38 +81,31 @@ impl SNESController {
 
     pub fn read(&self) -> u8 {
         debug!("R");
-
-        let entry = self.events.get(&self.cur_button).unwrap();
-        if *entry == 0 {
-            0x01
-        } else {
-            0x00
-        }
+        self.peek()
     }
 
-    pub fn write(&mut self, val: u8) {
-        debug!("W = {:?}", val);
-        match val {
-            0x02 => {
-                self.cur_button = Button::A;
+    pub fn write(&mut self, latch: u8, clk: u8) {
+        debug!("W L={:?} C={:?}", latch, clk);
+
+        if latch != 0 {
+            self.cur_button = Button::A;
+        }
+
+        if clk != 0 {
+            let event = self.events.get_mut(&self.cur_button).unwrap();
+            if *event > 0 {
+                *event -= 1;
             }
-            0x04 => {
-                let event = self.events.get_mut(&self.cur_button).unwrap();
-                if *event > 0 {
-                    *event -= 1;
-                }
-                self.cur_button = match self.cur_button {
-                    Button::A => Button::B,
-                    Button::B => Button::Select,
-                    Button::Select => Button::Start,
-                    Button::Start => Button::Up,
-                    Button::Up => Button::Down,
-                    Button::Down => Button::Left,
-                    Button::Left => Button::Right,
-                    Button::Right => Button::A,
-                };
-            }
-            _ => {}
+            self.cur_button = match self.cur_button {
+                Button::A => Button::B,
+                Button::B => Button::Select,
+                Button::Select => Button::Start,
+                Button::Start => Button::Up,
+                Button::Up => Button::Down,
+                Button::Down => Button::Left,
+                Button::Left => Button::Right,
+                Button::Right => Button::A,
+            };
         }
     }
 }
