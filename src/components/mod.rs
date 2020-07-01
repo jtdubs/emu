@@ -6,8 +6,8 @@ pub mod ram;
 pub mod rom;
 
 pub use controller::SNESController;
-pub use cpu::{BusArbiter, BusOperation, W65C02S};
+pub use cpu::{Bus, W65C02S};
 pub use display::{HD44780U, RegisterSelector};
-pub use periph::{W65C22, PortArbiter, PortOperation, Port};
+pub use periph::{W65C22, Ports, Port};
 pub use ram::RAM;
 pub use rom::ROM;

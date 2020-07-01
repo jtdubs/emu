@@ -38,7 +38,7 @@ impl System {
     }
 
     pub fn peek(&mut self, addr: u16) -> u8 {
-        self.bus.bus(BusOperation::Peek(addr))
+        self.bus.peek(addr)
     }
 
     pub fn cycle(&mut self) {
@@ -66,43 +66,40 @@ impl BusMembers {
     }
 }
 
-impl BusArbiter for BusMembers {
-    fn bus(&mut self, op: BusOperation) -> u8 {
-        match op {
-            BusOperation::Read(addr) => {
-                if addr & 0x8000 == 0x8000 {
-                    self.rom.read(addr & !0x8000)
-                } else if addr & 0xC000 == 0x0000 {
-                    self.ram.read(addr & !0xC000)
-                } else if addr & 0xFFF0 == 0x6000 {
-                    self.per.read(addr & !0xFFF0, &mut self.pers)
-                } else {
-                    panic!("read at unmapped address: {:02x}", addr);
-                }
-            }
-            BusOperation::Write(addr, val) => {
-                if addr & 0x8000 == 0x8000 {
-                    self.rom.write(addr & !0x8000, val);
-                } else if addr & 0xC000 == 0x0000 {
-                    self.ram.write(addr & !0xC000, val);
-                } else if addr & 0xFFF0 == 0x6000 {
-                    self.per.write(addr & !0xFFF0, val, &mut self.pers);
-                } else {
-                    panic!("write at unmapped address: {:02x}", addr);
-                }
-                val
-            }
-            BusOperation::Peek(addr) => {
-                if addr & 0x8000 == 0x8000 {
-                    self.rom.peek(addr & !0x8000)
-                } else if addr & 0xC000 == 0x0000 {
-                    self.ram.peek(addr & !0xC000)
-                } else if addr & 0xFFF0 == 0x6000 {
-                    self.per.peek(addr & !0xFFF0, &mut self.pers)
-                } else {
-                    panic!("peek at unmapped address: {:02x}", addr);
-                }
-            }
+impl Bus for BusMembers {
+    fn peek(&self, addr: u16) -> u8 {
+        if addr & 0x8000 == 0x8000 {
+            self.rom.peek(addr & !0x8000)
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.peek(addr & !0xC000)
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.peek(addr & !0xFFF0, &self.pers)
+        } else {
+            panic!("peek at unmapped address: {:02x}", addr);
+        }
+    }
+
+    fn read(&mut self, addr: u16) -> u8 {
+        if addr & 0x8000 == 0x8000 {
+            self.rom.read(addr & !0x8000)
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.read(addr & !0xC000)
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.read(addr & !0xFFF0, &mut self.pers)
+        } else {
+            panic!("read at unmapped address: {:02x}", addr);
+        }
+    }
+
+    fn write(&mut self, addr: u16, val: u8) {
+        if addr & 0x8000 == 0x8000 {
+            self.rom.write(addr & !0x8000, val);
+        } else if addr & 0xC000 == 0x0000 {
+            self.ram.write(addr & !0xC000, val);
+        } else if addr & 0xFFF0 == 0x6000 {
+            self.per.write(addr & !0xFFF0, val, &mut self.pers);
+        } else {
+            panic!("write at unmapped address: {:02x}", addr);
         }
     }
 }
@@ -151,50 +148,46 @@ impl Peripherals {
     }
 }
 
-impl PortArbiter for Peripherals {
-    fn port(&mut self, op: PortOperation) -> u8 {
-        match op {
-            PortOperation::Read(port) => {
-                match port {
-                    Port::A => {
-                        self.con.read() & 0x07
-                    }
-                    Port::B => {
-                        let (rs, rw, e) = self.get_dsp_pins();
-                        self.dsp.read(rs, rw, e)
-                    }
-                }
+impl Ports for Peripherals {
+    fn peek(&self, port: Port) -> u8 {
+        match port {
+            Port::A => {
+                self.con.peek() & 0x07
             }
-            PortOperation::Peek(port) => {
-                match port {
-                    Port::A => {
-                        self.con.peek() & 0x07
-                    }
-                    Port::B => {
-                        let (rs, rw, e) = self.get_dsp_pins();
-                        self.dsp.peek(rs, rw, e)
-                    }
-                }
-            }
-            PortOperation::Write(port, val) => {
-                match port {
-                    Port::A => {
-                        self.a_cache = val;
-                    }
-                    Port::B => {
-                        self.b_cache = val;
-                    }
-                }
-
+            Port::B => {
                 let (rs, rw, e) = self.get_dsp_pins();
-                self.dsp.write(rs, rw, e, self.b_cache);
-
-                
-                let (latch, clk) = self.get_con_pins();
-                self.con.write(latch, clk);
-
-                val
+                self.dsp.peek(rs, rw, e)
             }
         }
+    }
+
+    fn read(&mut self, port: Port) -> u8 {
+        match port {
+            Port::A => {
+                self.con.read() & 0x07
+            }
+            Port::B => {
+                let (rs, rw, e) = self.get_dsp_pins();
+                self.dsp.read(rs, rw, e)
+            }
+        }
+    }
+
+    fn write(&mut self, port: Port, val: u8) {
+        match port {
+            Port::A => {
+                self.a_cache = val;
+            }
+            Port::B => {
+                self.b_cache = val;
+            }
+        }
+
+        let (rs, rw, e) = self.get_dsp_pins();
+        self.dsp.write(rs, rw, e, self.b_cache);
+
+        
+        let (latch, clk) = self.get_con_pins();
+        self.con.write(latch, clk);
     }
 }

@@ -381,14 +381,10 @@ pub enum CPUFlag {
     Negative = 0x80,
 }
 
-pub enum BusOperation {
-    Read(u16),
-    Write(u16, u8),
-    Peek(u16),
-}
-
-pub trait BusArbiter {
-    fn bus(&mut self, op: BusOperation) -> u8;
+pub trait Bus {
+    fn peek(&self, addr: u16) -> u8;
+    fn read(&mut self, addr: u16) -> u8;
+    fn write(&mut self, addr: u16, val: u8);
 }
 
 pub struct W65C02S {
@@ -449,29 +445,29 @@ impl W65C02S {
         }
     }
 
-    fn read(&self, bus: &mut impl BusArbiter, addr: u16) -> u8 {
-        bus.bus(BusOperation::Read(addr))
+    fn read(&self, bus: &mut impl Bus, addr: u16) -> u8 {
+        bus.read(addr)
     }
 
-    fn write(&mut self, bus: &mut impl BusArbiter, addr: u16, val: u8) {
-        bus.bus(BusOperation::Write(addr, val));
+    fn write(&mut self, bus: &mut impl Bus, addr: u16, val: u8) {
+        bus.write(addr, val)
     }
 
-    fn stack_push(&mut self, bus: &mut impl BusArbiter, val: u8) {
+    fn stack_push(&mut self, bus: &mut impl Bus, val: u8) {
         self.write(bus, 0x0100 + (self.s as u16), val);
         self.s = self.s.wrapping_sub(1);
     }
 
-    fn stack_pop(&mut self, bus: &mut impl BusArbiter) -> u8 {
+    fn stack_pop(&mut self, bus: &mut impl Bus) -> u8 {
         self.s = self.s.wrapping_add(1);
         self.read(bus, 0x0100 + (self.s as u16))
     }
 
-    fn stack_peek(&self, bus: &mut impl BusArbiter) -> u8 {
+    fn stack_peek(&self, bus: &mut impl Bus) -> u8 {
         self.read(bus, 0x0100 + (self.s as u16))
     }
 
-    fn fetch(&mut self, bus: &mut impl BusArbiter) -> u8 {
+    fn fetch(&mut self, bus: &mut impl Bus) -> u8 {
         let val = self.read(bus, self.pc);
         self.pc += 1;
         val
@@ -525,7 +521,7 @@ impl W65C02S {
         }
     }
 
-    fn branch(&mut self, bus: &mut impl BusArbiter, flag: CPUFlag, val: bool) {
+    fn branch(&mut self, bus: &mut impl Bus, flag: CPUFlag, val: bool) {
         self.temp8 = self.fetch(bus);
         let f = flag as u8;
         if self.p & f == (if val { f } else { 0 }) {
@@ -535,7 +531,7 @@ impl W65C02S {
         }
     }
 
-    pub fn cycle(&mut self, bus: &mut impl BusArbiter) {
+    pub fn cycle(&mut self, bus: &mut impl Bus) {
         debug!("CPU: {:x?}", self);
 
         match self.state {
