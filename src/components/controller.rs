@@ -84,14 +84,14 @@ impl SNESController {
         self.peek()
     }
 
-    pub fn write(&mut self, latch: u8, clk: u8) {
+    pub fn write(&mut self, latch: bool, clk: bool) {
         debug!("W L={:?} C={:?}", latch, clk);
 
-        if latch != 0 {
+        if latch {
             self.cur_button = Button::A;
         }
 
-        if clk != 0 {
+        if clk {
             let event = self.events.get_mut(&self.cur_button).unwrap();
             if *event > 0 {
                 *event -= 1;

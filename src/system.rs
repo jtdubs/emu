@@ -114,10 +114,6 @@ pub struct Peripherals {
     pub b_cache: u8,
 }
 
-const RS: u8 = 0x20;
-const RW: u8 = 0x40;
-const E: u8 = 0x80;
-
 impl Peripherals {
     pub fn new() -> Peripherals {
         Peripherals {
@@ -128,15 +124,29 @@ impl Peripherals {
         }
     }
 
-    fn get_control(&self, a: u8) -> (RegisterSelector, bool, bool) {
+    fn get_dsp_pins(&self) -> (RegisterSelector, bool, bool) {
+        const RS: u8 = 0x20;
+        const RW: u8 = 0x40;
+        const E: u8 = 0x80;
+
         (
-            if a & RS == RS {
+            if self.a_cache & RS == RS {
                 RegisterSelector::Data
             } else {
                 RegisterSelector::Instruction
             },
-            a & RW == RW,
-            a & E == E,
+            self.a_cache & RW == RW,
+            self.a_cache & E == E,
+        )
+    }
+
+    fn get_con_pins(&self) -> (bool, bool) {
+        const LATCH: u8 = 0x02;
+        const CLK: u8 = 0x04;
+
+        (
+            self.a_cache & LATCH == LATCH,
+            self.a_cache & CLK == CLK,
         )
     }
 }
@@ -147,43 +157,42 @@ impl PortArbiter for Peripherals {
             PortOperation::Read(port) => {
                 match port {
                     Port::A => {
-                        (0u8 & 0xE0) | (self.con.read() & 0x07)
+                        self.con.read() & 0x07
                     }
                     Port::B => {
-                        self.dsp.read(self.get_control(self.a_cache).0)
+                        let (rs, rw, e) = self.get_dsp_pins();
+                        self.dsp.read(rs, rw, e)
                     }
                 }
             }
             PortOperation::Peek(port) => {
                 match port {
                     Port::A => {
-                        (0u8 & 0xE0) | (self.con.peek() & 0x07)
+                        self.con.peek() & 0x07
                     }
                     Port::B => {
-                        self.dsp.peek(self.get_control(self.a_cache).0)
+                        let (rs, rw, e) = self.get_dsp_pins();
+                        self.dsp.peek(rs, rw, e)
                     }
                 }
             }
             PortOperation::Write(port, val) => {
                 match port {
                     Port::A => {
-                        let dsp_val = val & 0xE0;
-                        match (self.get_control(self.a_cache).2, self.get_control(dsp_val).2) {
-                            (true, false) => {
-                                self.dsp.write(self.get_control(dsp_val).0, self.b_cache);
-                            }
-                            _ => {}
-                        }
-                        self.a_cache = dsp_val;
-
-                        let con_latch = (val >> 1) & 1;
-                        let con_clk = (val >> 2) & 1;
-                        self.con.write(con_latch, con_clk);
+                        self.a_cache = val;
                     }
                     Port::B => {
                         self.b_cache = val;
                     }
                 }
+
+                let (rs, rw, e) = self.get_dsp_pins();
+                self.dsp.write(rs, rw, e, self.b_cache);
+
+                
+                let (latch, clk) = self.get_con_pins();
+                self.con.write(latch, clk);
+
                 val
             }
         }

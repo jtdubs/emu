@@ -21,6 +21,7 @@ pub struct HD44780U {
     pub line2: Vec<u8>,
     pub charset: Vec<char>,
     pub updated: bool,
+    pub e: bool,
 }
 
 impl fmt::Debug for HD44780U {
@@ -71,11 +72,16 @@ impl HD44780U {
             line2: line2,
             charset: charset,
             updated: false,
+            e: false,
         }
     }
 
-    pub fn peek(&self, addr: RegisterSelector) -> u8 {
-        match addr {
+    pub fn peek(&self, rs: RegisterSelector, rw: bool, _e: bool) -> u8 {
+        if !rw {
+            panic!("attempt to read display without read bit set");
+        }
+
+        match rs {
             RegisterSelector::Instruction => {
                 let mut result = self.addr;
                 if let State::Busy(_) = self.state {
@@ -94,14 +100,18 @@ impl HD44780U {
         }
     }
 
-    pub fn read(&self, addr: RegisterSelector) -> u8 {
-        match addr {
+    pub fn read(&self, rs: RegisterSelector, rw: bool, _e: bool) -> u8 {
+        if !rw {
+            panic!("attempt to read display without read bit set");
+        }
+        
+        match rs {
             RegisterSelector::Instruction => {
                 let mut result = self.addr;
                 if let State::Busy(_) = self.state {
                     result |= 0x80;
                 }
-                debug!("R {:?} = {:02x}", addr, result);
+                debug!("R {:?} = {:02x}", rs, result);
                 result
             }
             RegisterSelector::Data => {
@@ -111,61 +121,72 @@ impl HD44780U {
                 } else {
                     self.line2[offset]
                 };
-                debug!("R {:?} = {:02x}", addr, result);
+                debug!("R {:?} = {:02x}", rs, result);
                 result
             }
         }
     }
 
-    pub fn write(&mut self, addr: RegisterSelector, val: u8) {
-        info!("W {:?} = {:02x}", addr, val);
-        match addr {
-            RegisterSelector::Instruction => {
-                if val & 0x80 == 0x80 {
-                    // set ddram addr
-                    self.addr = (val & 0x7f) % 80;
-                } else if val & 0x40 == 0x40 {
-                    // set cgram addr
-                } else if val & 0x20 == 0x20 {
-                    // function set
-                } else if val & 0x10 == 0x10 {
-                    // cursor or display shift
-                } else if val & 0x08 == 0x08 {
-                    // display on/off
-                } else if val & 0x04 == 0x04 {
-                    // entry mode set
-                } else if val & 0x02 == 0x02 {
-                    // return home
-                } else if val & 0x01 == 0x01 {
-                    // clear display
-                    self.addr = 0;
-                    self.line1.iter_mut().for_each(|x| *x = ' ' as u8);
-                    self.line2.iter_mut().for_each(|x| *x = ' ' as u8);
-                }
-                self.state = State::Busy(37);
-            }
-            RegisterSelector::Data => {
-                let offset = (self.addr & 0x3F) as usize;
+    pub fn write(&mut self, rs: RegisterSelector, rw: bool, e: bool, val: u8) {
+        info!("W {:?} = {:02x}", rs, val);
+        
+        let last_e = self.e;
+        self.e = e;
+        
+        if rw {
+            return;
+        }
 
-                if self.addr & 0x40 == 0x00 {
-                    self.line1[offset] = val;
-                } else {
-                    self.line2[offset] = val;
-                };
-
-                self.addr += 1;
-                if self.addr & 0x40 == 0x00 {
-                    if self.addr > 40 {
-                        self.addr = 0x40;
+        // falling edge triggers write
+        if last_e && !self.e {
+            match rs {
+                RegisterSelector::Instruction => {
+                    if val & 0x80 == 0x80 {
+                        // set ddram addr
+                        self.addr = (val & 0x7f) % 80;
+                    } else if val & 0x40 == 0x40 {
+                        // set cgram addr
+                    } else if val & 0x20 == 0x20 {
+                        // function set
+                    } else if val & 0x10 == 0x10 {
+                        // cursor or display shift
+                    } else if val & 0x08 == 0x08 {
+                        // display on/off
+                    } else if val & 0x04 == 0x04 {
+                        // entry mode set
+                    } else if val & 0x02 == 0x02 {
+                        // return home
+                    } else if val & 0x01 == 0x01 {
+                        // clear display
+                        self.addr = 0;
+                        self.line1.iter_mut().for_each(|x| *x = ' ' as u8);
+                        self.line2.iter_mut().for_each(|x| *x = ' ' as u8);
                     }
-                } else {
-                    if self.addr > (0x40 + 40) {
-                        self.addr = 0x00;
-                    }
+                    self.state = State::Busy(37);
                 }
-
-                self.state = State::Busy(37);
-                self.updated = true;
+                RegisterSelector::Data => {
+                    let offset = (self.addr & 0x3F) as usize;
+    
+                    if self.addr & 0x40 == 0x00 {
+                        self.line1[offset] = val;
+                    } else {
+                        self.line2[offset] = val;
+                    };
+    
+                    self.addr += 1;
+                    if self.addr & 0x40 == 0x00 {
+                        if self.addr > 40 {
+                            self.addr = 0x40;
+                        }
+                    } else {
+                        if self.addr > (0x40 + 40) {
+                            self.addr = 0x00;
+                        }
+                    }
+    
+                    self.state = State::Busy(37);
+                    self.updated = true;
+                }
             }
         }
     }
