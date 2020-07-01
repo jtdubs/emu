@@ -787,7 +787,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                         self.tcu += 1;
                     }
                     ((Instruction::BRK, _), 4) => {
-                        self.stack_push(self.p);
+                        self.stack_push(self.p | (CPUFlag::BRK as u8) | (CPUFlag::User as u8));
                         self.tcu += 1;
                     }
                     ((Instruction::BRK, _), 5) => {
@@ -1141,8 +1141,8 @@ impl<BusType: Bus> W65C02S<BusType> {
                             self.read(self.temp16)
                         };
 
-                        self.update_zero_flag(self.x == 0);
-                        self.update_negative_flag(self.x);
+                        self.update_zero_flag(self.y == 0);
+                        self.update_negative_flag(self.y);
                         self.tcu = 0;
                     }
 
@@ -1229,7 +1229,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     // PHP s
                     //
                     ((Instruction::PHP, AddressMode::Stack), 1) => {
-                        self.stack_push(self.p);
+                        self.stack_push(self.p | (CPUFlag::BRK as u8) | (CPUFlag::User as u8));
                         self.tcu += 1;
                     }
                     ((Instruction::PHP, AddressMode::Stack), 2) => {
@@ -1266,6 +1266,8 @@ impl<BusType: Bus> W65C02S<BusType> {
                         self.tcu += 1;
                     }
                     ((Instruction::PLA, AddressMode::Stack), 2) => {
+                        self.update_zero_flag(self.a == 0);
+                        self.update_negative_flag(self.a);
                         self.tcu += 1;
                     }
                     ((Instruction::PLA, AddressMode::Stack), 3) => {
@@ -1294,6 +1296,8 @@ impl<BusType: Bus> W65C02S<BusType> {
                         self.tcu += 1;
                     }
                     ((Instruction::PLX, AddressMode::Stack), 2) => {
+                        self.update_zero_flag(self.x == 0);
+                        self.update_negative_flag(self.x);
                         self.tcu += 1;
                     }
                     ((Instruction::PLX, AddressMode::Stack), 3) => {
@@ -1308,6 +1312,8 @@ impl<BusType: Bus> W65C02S<BusType> {
                         self.tcu += 1;
                     }
                     ((Instruction::PLY, AddressMode::Stack), 2) => {
+                        self.update_zero_flag(self.y == 0);
+                        self.update_negative_flag(self.y);
                         self.tcu += 1;
                     }
                     ((Instruction::PLY, AddressMode::Stack), 3) => {
@@ -1561,7 +1567,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     // STX
                     //
                     ((Instruction::STX, AddressMode::ZeroPage), 2)
-                    | ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3)
+                    | ((Instruction::STX, AddressMode::ZeroPageIndexedWithX), 3)
                     | ((Instruction::STX, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.x);
                         self.tcu = 0;
@@ -1795,7 +1801,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     _ => {
                         self.state = CPUState::Halt;
                         info!("CPU: {:x?}", self);
-                        unimplemented!("Unimplemented opcode: {:?}, {:?}", self.ir, self.tcu);
+                        unimplemented!("Unimplemented opcode: PC={:?}, IR={:?}, TCU={:?}", self.pc, self.ir, self.tcu);
                     }
                 }
             }
