@@ -1,6 +1,4 @@
 TODO:
-- Goal: consolidate connectivity between components into System
-  - Pull peripheral connections back out of peripheral class
 - Better command-line invocation
 - Better error handling (less panics)
 
