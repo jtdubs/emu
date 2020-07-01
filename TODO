@@ -1,4 +1,6 @@
 TODO:
+- 6502 instruction testing
+- decimal mode??
 - Better command-line invocation
 - Better error handling (less panics)
 

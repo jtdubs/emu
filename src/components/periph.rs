@@ -20,7 +20,7 @@ pub trait Ports {
 }
 
 #[allow(dead_code)]
-pub struct W65C22<P : Ports> {
+pub struct W65C22<PortsType: Ports> {
     pub orb: u8,
     pub ora: u8,
     pub ddrb: u8,
@@ -33,10 +33,10 @@ pub struct W65C22<P : Ports> {
     pub pcr: u8,
     pub ifr: Cell<u8>,
     pub ier: u8,
-    pub ports: P
+    pub ports: PortsType
 }
 
-impl<P : Ports> fmt::Debug for W65C22<P> {
+impl<PortsType: Ports> fmt::Debug for W65C22<PortsType> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("W65C22")
             .field("orb", &self.orb)
@@ -47,8 +47,8 @@ impl<P : Ports> fmt::Debug for W65C22<P> {
     }
 }
 
-impl<P : Ports> W65C22<P> {
-    pub fn new(ports: P) -> W65C22<P> {
+impl<PortsType: Ports> W65C22<PortsType> {
+    pub fn new(ports: PortsType) -> W65C22<PortsType> {
         W65C22 {
             orb: 0,
             ora: 0,

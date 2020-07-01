@@ -1,10 +1,18 @@
 use log::debug;
+use std::fs;
 
 pub struct RAM {
     pub mem: Vec<u8>,
 }
 
 impl RAM {
+    pub fn load(path: &str) -> RAM {
+        RAM {
+            mem: fs::read(path).unwrap()
+        }
+    }
+
+
     pub fn new(size: usize) -> RAM {
         let mut storage = Vec::new();
         storage.resize(size, 0u8);

@@ -1,21 +1,35 @@
 use std::io::{self, Write};
+use std::env;
 
 mod components;
 mod debugger;
 mod breadboard_system;
+mod cpu_test_system;
+mod system;
 
 use debugger::Debugger;
 use breadboard_system::BreadboardSystem;
+use cpu_test_system::CPUTestSystem;
+use system::System;
 
 fn main() {
     env_logger::init();
 
-    let mut sys = Debugger::new(BreadboardSystem::new("rom.bin"), "rom.sym");
-    let mut last_command: Option<String> = None;
+    match env::args().nth(1).unwrap_or("breadboard".to_string()).as_str() {
+        "cpu_test" => {
+            run(Debugger::new(CPUTestSystem::new("6502_functional_test.bin", 0x400)))
+        }
+        "breadboard" => {
+            let mut d = Debugger::new(BreadboardSystem::new("rom.bin"));
+            d.read_symbols("rom.sym");
+            run(d);
+         }
+        _ => { panic!("invalid board"); }
+    };
+}
 
-    // sys.run();
-    // sys.show_cpu();
-    // sys.show_per();
+fn run<SystemType: System>(mut dbg: Debugger<SystemType>) {        
+    let mut last_command: Option<String> = None;
 
     loop {
         print!("emu> ");
@@ -38,46 +52,46 @@ fn main() {
 
         match words.next().unwrap_or("") {
             "run" | "r" => {
-                sys.run();
-                sys.show_cpu();
-                sys.show_per();
+                dbg.run();
+                dbg.show_cpu();
+                dbg.show_per();
             }
             "bench" => {
-                sys.bench();
+                dbg.bench();
             }
             "headless" | "head" | "rh" => {
-                sys.run_headless();
-                sys.show_cpu();
-                sys.show_per();
+                dbg.run_headless();
+                dbg.show_cpu();
+                dbg.show_per();
             }
             "step" | "s" => {
-                sys.step();
-                sys.show_cpu();
-                sys.show_per();
+                dbg.step();
+                dbg.show_cpu();
+                dbg.show_per();
             }
             "over" | "so" | "o" => {
-                sys.step_over();
-                sys.show_cpu();
-                sys.show_per();
+                dbg.step_over();
+                dbg.show_cpu();
+                dbg.show_per();
             }
             "out" | "up" | "u" | "finish" | "fin" => {
-                sys.step_out();
-                sys.show_cpu();
-                sys.show_per();
+                dbg.step_out();
+                dbg.show_cpu();
+                dbg.show_per();
             }
             "sys" => {
-                sys.show_cpu();
-                sys.show_per();
+                dbg.show_cpu();
+                dbg.show_per();
             }
-            "bp" => sys.list_breakpoints(),
-            "break" | "br" | "b" => sys.add_breakpoint(words.next().unwrap()),
-            "del" => sys.remove_breakpoint(words.next().unwrap().parse().unwrap()),
-            "cpu" => sys.show_cpu(),
-            "per" => sys.show_per(),
-            "zp" | "z" => sys.show_zp(),
-            "stack" | "sta" => sys.show_stack(),
-            "ram" | "mem" | "m" => sys.show_ram(),
-            "display" | "dsp" | "d" => sys.show_dsp(),
+            "bp" => dbg.list_breakpoints(),
+            "break" | "br" | "b" => dbg.add_breakpoint(words.next().unwrap()),
+            "del" => dbg.remove_breakpoint(words.next().unwrap().parse().unwrap()),
+            "cpu" => dbg.show_cpu(),
+            "per" => dbg.show_per(),
+            "zp" | "z" => dbg.show_zp(),
+            "stack" | "sta" => dbg.show_stack(),
+            "ram" | "mem" | "m" => dbg.show_ram(),
+            "display" | "dsp" | "d" => dbg.show_dsp(),
             "quit" | "q" | "exit" => {
                 return;
             }

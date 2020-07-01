@@ -12,14 +12,14 @@ use std::time::Instant;
 use timer::Timer;
 
 use crate::components::*;
-use crate::breadboard_system::BreadboardSystem;
+use crate::system::System;
 
 const CYCLE_NANOSECONDS: u64 = 1000;
 const CYCLES_PER_EPOCH: u64 = 10000;
 const WINDOW_SIZE: u64 = 200;
 
-pub struct Debugger {
-    pub sys: BreadboardSystem,
+pub struct Debugger<SystemType: System> {
+    pub sys: SystemType,
     pub breakpoints: Vec<u16>,
     pub sym2addr: HashMap<String, u16>,
     pub addr2sym: HashMap<u16, String>,
@@ -31,9 +31,9 @@ pub struct Debugger {
     pub bench: bool,
 }
 
-impl Debugger {
-    pub fn new(sys: BreadboardSystem, sym_path: &str) -> Debugger {
-        let mut sys = Debugger {
+impl<SystemType: System> Debugger<SystemType> {
+    pub fn new(sys: SystemType) -> Debugger<SystemType> {
+        Debugger {
             sys: sys,
             breakpoints: Vec::new(),
             sym2addr: HashMap::new(),
@@ -44,10 +44,7 @@ impl Debugger {
             timer: Timer::new(),
             cycle_gate: Arc::new((Condvar::new(), Mutex::new(0))),
             bench: false,
-        };
-
-        sys.read_symbols(sym_path);
-        sys
+        }
     }
 
     pub fn step(&mut self) {
@@ -149,16 +146,18 @@ impl Debugger {
         execute!(stdout, cursor::Hide).unwrap();
 
         {
-            let (line1, line2) = self.sys.get_display().get_output();
-            execute!(
-                stdout,
-                Print(format!(
-                    "┌────────────────┐\r\n│{}|\r\n|{}|\r\n└────────────────┘\r\n>\r",
-                    line1, line2
-                )),
-                cursor::MoveUp(3)
-            )
-            .unwrap();
+            if let Some(dsp) = self.sys.get_display() {
+                let (line1, line2) = dsp.get_output();
+                execute!(
+                    stdout,
+                    Print(format!(
+                        "┌────────────────┐\r\n│{}|\r\n|{}|\r\n└────────────────┘\r\n>\r",
+                        line1, line2
+                    )),
+                    cursor::MoveUp(3)
+                )
+                .unwrap();
+            }
         }
 
         self.epoch_start = Instant::now();
@@ -172,16 +171,18 @@ impl Debugger {
                             break;
                         }
                         event::KeyCode::Char(c) => {
-                            match c {
-                                'w' => { self.sys.get_controller().on_press(Button::Up); self.sys.get_controller().on_release(Button::Up); }
-                                's' => { self.sys.get_controller().on_press(Button::Down); self.sys.get_controller().on_release(Button::Down); }
-                                'a' => { self.sys.get_controller().on_press(Button::Left); self.sys.get_controller().on_release(Button::Left); }
-                                'd' => { self.sys.get_controller().on_press(Button::Right); self.sys.get_controller().on_release(Button::Right); }
-                                'j' => { self.sys.get_controller().on_press(Button::A); self.sys.get_controller().on_release(Button::A); }
-                                'k' => { self.sys.get_controller().on_press(Button::B); self.sys.get_controller().on_release(Button::B); }
-                                'l' => { self.sys.get_controller().on_press(Button::Select); self.sys.get_controller().on_release(Button::Select); }
-                                ';' => { self.sys.get_controller().on_press(Button::Start); self.sys.get_controller().on_release(Button::Start); }
-                                _ => {}
+                            if let Some(con) = self.sys.get_controller() {
+                                match c {
+                                    'w' => { con.on_press(Button::Up); con.on_release(Button::Up); }
+                                    's' => { con.on_press(Button::Down); con.on_release(Button::Down); }
+                                    'a' => { con.on_press(Button::Left); con.on_release(Button::Left); }
+                                    'd' => { con.on_press(Button::Right); con.on_release(Button::Right); }
+                                    'j' => { con.on_press(Button::A); con.on_release(Button::A); }
+                                    'k' => { con.on_press(Button::B); con.on_release(Button::B); }
+                                    'l' => { con.on_press(Button::Select); con.on_release(Button::Select); }
+                                    ';' => { con.on_press(Button::Start); con.on_release(Button::Start); }
+                                    _ => {}
+                                }
                             }
                         }
                         _ => {}
@@ -198,24 +199,42 @@ impl Debugger {
                 break;
             }
 
-            if self.sys.get_display().get_updated() || fps_refresh.load(Ordering::Acquire) {
-                fps_refresh.store(false, Ordering::Release);
-                let (line1, line2) = self.sys.get_display().get_output();
-                execute!(
-                    stdout,
-                    Print(format!(
-                        "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns)",
-                        line1,
-                        line2,
-                        1000.0
-                            / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
-                        self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
-                    )),
-                    terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
-                    cursor::MoveToColumn(0),
-                    cursor::MoveUp(3)
-                )
-                .unwrap();
+            if let Some(dsp) = self.sys.get_display() {
+                if dsp.get_updated() || fps_refresh.load(Ordering::Acquire) {
+                    fps_refresh.store(false, Ordering::Release);
+                    let (line1, line2) = dsp.get_output();
+                    execute!(
+                        stdout,
+                        Print(format!(
+                            "│{}│\r\n│{}│\r\n\n> {:2.2?}MHz ({:?}ns)",
+                            line1,
+                            line2,
+                            1000.0
+                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                            self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
+                        )),
+                        terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
+                        cursor::MoveToColumn(0),
+                        cursor::MoveUp(3)
+                    )
+                    .unwrap();
+                }
+            } else {
+                if fps_refresh.load(Ordering::Acquire) {
+                    fps_refresh.store(false, Ordering::Release);
+                    execute!(
+                        stdout,
+                        Print(format!(
+                            "\n> {:2.2?}MHz ({:?}ns)",
+                            1000.0
+                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                            self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
+                        )),
+                        terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
+                        cursor::MoveToColumn(0)
+                    )
+                    .unwrap();
+                }
             }
         }
 
@@ -262,7 +281,7 @@ impl Debugger {
 
     pub fn show_cpu(&mut self) {
         let cpu = self.sys.get_cpu();
-        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc);
+        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc-1);
 
         self.show_instruction();
 
@@ -290,27 +309,30 @@ impl Debugger {
     }
 
     pub fn show_dsp(&mut self) {
-        let (line1, line2) = self.sys.get_display().get_output();
+        if let Some(dsp) = self.sys.get_display() {
+            let (line1, line2) = dsp.get_output();
 
-        println!("┌────────────────┐");
-        println!("│{}│", line1);
-        println!("│{}│", line2);
-        println!("└────────────────┘");
+            println!("┌────────────────┐");
+            println!("│{}│", line1);
+            println!("│{}│", line2);
+            println!("└────────────────┘");
+        }
     }
 
     pub fn show_per(&self) {
-        let per = self.sys.get_peripheral_controller();
-        println!(
-            "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
-            per.ora,
-            per.ddra,
-            per.orb,
-            per.ddrb,
-            per.t1c,
-            per.t1l,
-            per.ifr.get(),
-            per.ier
-        );
+        if let Some(per) = self.sys.get_peripheral_controller() {
+            println!(
+                "PA:{:02x}[{:02x}]  PB:{:02x}[{:02x}]  T1:{:04x}/{:04x}  I:{:02x}[{:02x}]",
+                per.ora,
+                per.ddra,
+                per.orb,
+                per.ddrb,
+                per.t1c,
+                per.t1l,
+                per.ifr.get(),
+                per.ier
+            );
+        }
     }
 
     fn start_timer(&mut self) -> timer::Guard {
@@ -359,7 +381,7 @@ impl Debugger {
         self.sys.cycle();
     }
 
-    fn read_symbols(&mut self, path: &str) {
+    pub fn read_symbols(&mut self, path: &str) {
         for line in std::fs::read_to_string(path).unwrap().lines() {
             let mut words = line.split_ascii_whitespace();
             words.next().unwrap();

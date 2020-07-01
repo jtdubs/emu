@@ -387,7 +387,7 @@ pub trait Bus {
     fn write(&mut self, addr: u16, val: u8);
 }
 
-pub struct W65C02S<B : Bus> {
+pub struct W65C02S<BusType: Bus> {
     pub state: CPUState, // cpu state
     pub ir: Opcode,      // instruction register
     pub tcu: u8,         // timing control unit
@@ -400,10 +400,10 @@ pub struct W65C02S<B : Bus> {
     pub temp8: u8,       // temporary storage
     pub temp16: u16,     // temporary storage
     pub interrupt: bool, // an interrupt is available
-    pub bus: B,
+    pub bus: BusType,
 }
 
-impl<B : Bus> fmt::Debug for W65C02S<B> {
+impl<BusType: Bus> fmt::Debug for W65C02S<BusType> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("W65C02S")
             .field("state", &self.state)
@@ -421,8 +421,8 @@ impl<B : Bus> fmt::Debug for W65C02S<B> {
     }
 }
 
-impl<B : Bus> W65C02S<B> {
-    pub fn new(bus : B) -> W65C02S<B> {
+impl<BusType: Bus> W65C02S<BusType> {
+    pub fn new(bus : BusType) -> W65C02S<BusType> {
         W65C02S {
             state: CPUState::Init(0),
             ir: (Instruction::NOP, AddressMode::Implied),

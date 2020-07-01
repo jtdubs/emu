@@ -1,4 +1,5 @@
 use crate::components::*;
+use crate::system::System;
 
 pub struct BreadboardSystem {
     cpu: W65C02S<SystemBus>,
@@ -10,36 +11,41 @@ impl BreadboardSystem {
             cpu: W65C02S::new(SystemBus::new(rom_path)),
         }
     }
+}
 
-    pub fn is_halted(&self) -> bool {
+impl System for BreadboardSystem {
+    type BusType = SystemBus;
+    type PortsType = Peripherals;
+
+    fn is_halted(&self) -> bool {
         self.cpu.is_halted()
     }
 
-    pub fn get_cpu(&self) -> &W65C02S<SystemBus> {
+    fn get_cpu(&self) -> &W65C02S<Self::BusType> {
         &self.cpu
     }
 
-    pub fn get_display(&mut self) -> &mut HD44780U {
-        &mut self.cpu.bus.per.ports.dsp
+    fn get_display(&mut self) -> Option<&mut HD44780U> {
+        Some(&mut self.cpu.bus.per.ports.dsp)
     }
 
-    pub fn get_ram(&self) -> &RAM {
+    fn get_ram(&self) -> &RAM {
         &self.cpu.bus.ram
     }
 
-    pub fn get_controller(&mut self) -> &mut SNESController {
-        &mut self.cpu.bus.per.ports.con
+    fn get_controller(&mut self) -> Option<&mut SNESController> {
+        Some(&mut self.cpu.bus.per.ports.con)
     }
 
-    pub fn get_peripheral_controller(&self) -> &W65C22<Peripherals> {
-        &self.cpu.bus.per
+    fn get_peripheral_controller(&self) -> Option<&W65C22<Self::PortsType>> {
+        Some(&self.cpu.bus.per)
     }
 
-    pub fn peek(&mut self, addr: u16) -> u8 {
+    fn peek(&mut self, addr: u16) -> u8 {
         self.cpu.bus.peek(addr)
     }
 
-    pub fn cycle(&mut self) {
+    fn cycle(&mut self) {
         self.cpu.cycle();
         let per_int = self.cpu.bus.per.cycle();
         self.cpu.set_interrupt(per_int);
