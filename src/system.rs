@@ -56,6 +56,10 @@ pub struct BusMembers {
 }
 
 impl BusMembers {
+    const ROM_SELECTOR: (u16, u16) = (0x8000, 0x8000);
+    const RAM_SELECTOR: (u16, u16) = (0xC000, 0x0000);
+    const PER_SELECTOR: (u16, u16) = (0xFFF0, 0x6000);
+
     pub fn new(rom_path: &str) -> BusMembers {
         BusMembers {
             rom: ROM::load(rom_path),
@@ -68,36 +72,36 @@ impl BusMembers {
 
 impl Bus for BusMembers {
     fn peek(&self, addr: u16) -> u8 {
-        if addr & 0x8000 == 0x8000 {
-            self.rom.peek(addr & !0x8000)
-        } else if addr & 0xC000 == 0x0000 {
-            self.ram.peek(addr & !0xC000)
-        } else if addr & 0xFFF0 == 0x6000 {
-            self.per.peek(addr & !0xFFF0, &self.pers)
+        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
+            self.rom.peek(addr & !BusMembers::ROM_SELECTOR.0)
+        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
+            self.ram.peek(addr & !BusMembers::RAM_SELECTOR.0)
+        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
+            self.per.peek(addr & !BusMembers::PER_SELECTOR.0, &self.pers)
         } else {
             panic!("peek at unmapped address: {:02x}", addr);
         }
     }
 
     fn read(&mut self, addr: u16) -> u8 {
-        if addr & 0x8000 == 0x8000 {
-            self.rom.read(addr & !0x8000)
-        } else if addr & 0xC000 == 0x0000 {
-            self.ram.read(addr & !0xC000)
-        } else if addr & 0xFFF0 == 0x6000 {
-            self.per.read(addr & !0xFFF0, &mut self.pers)
+        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
+            self.rom.read(addr & !BusMembers::ROM_SELECTOR.0)
+        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
+            self.ram.read(addr & !BusMembers::RAM_SELECTOR.0)
+        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
+            self.per.read(addr & !BusMembers::PER_SELECTOR.0, &mut self.pers)
         } else {
             panic!("read at unmapped address: {:02x}", addr);
         }
     }
 
     fn write(&mut self, addr: u16, val: u8) {
-        if addr & 0x8000 == 0x8000 {
-            self.rom.write(addr & !0x8000, val);
-        } else if addr & 0xC000 == 0x0000 {
-            self.ram.write(addr & !0xC000, val);
-        } else if addr & 0xFFF0 == 0x6000 {
-            self.per.write(addr & !0xFFF0, val, &mut self.pers);
+        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
+            self.rom.write(addr & !BusMembers::ROM_SELECTOR.1, val);
+        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
+            self.ram.write(addr & !BusMembers::RAM_SELECTOR.1, val);
+        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
+            self.per.write(addr & !BusMembers::PER_SELECTOR.0, val, &mut self.pers);
         } else {
             panic!("write at unmapped address: {:02x}", addr);
         }
