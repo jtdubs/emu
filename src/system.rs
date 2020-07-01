@@ -147,7 +147,7 @@ impl PortArbiter for Peripherals {
             PortOperation::Read(port) => {
                 match port {
                     Port::A => {
-                        (0u8 & 0xE0) | (self.con.read(Port::A) & 0x07)
+                        (0u8 & 0xE0) | (self.con.read() & 0x07)
                     }
                     Port::B => {
                         self.dsp.read(self.get_control(self.a_cache).0)
@@ -157,7 +157,7 @@ impl PortArbiter for Peripherals {
             PortOperation::Peek(port) => {
                 match port {
                     Port::A => {
-                        (0u8 & 0xE0) | (self.con.peek(Port::A) & 0x07)
+                        (0u8 & 0xE0) | (self.con.peek() & 0x07)
                     }
                     Port::B => {
                         self.dsp.peek(self.get_control(self.a_cache).0)
@@ -175,7 +175,7 @@ impl PortArbiter for Peripherals {
                             _ => {}
                         }
                         self.a_cache = dsp_val;
-                        self.con.write(Port::A, val & 0x07);
+                        self.con.write(val & 0x07);
                     }
                     Port::B => {
                         self.b_cache = val;

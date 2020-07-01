@@ -1,4 +1,3 @@
-use crate::components::periph;
 use log::debug;
 use std::collections::HashMap;
 
@@ -68,7 +67,7 @@ impl SNESController {
         }
     }
 
-    pub fn peek(&self, _p: periph::Port) -> u8 {
+    pub fn peek(&self) -> u8 {
         let entry = self.events.get(&self.cur_button).unwrap();
         if *entry == 0 {
             0x01
@@ -77,8 +76,8 @@ impl SNESController {
         }
     }
 
-    pub fn read(&self, p: periph::Port) -> u8 {
-        debug!("R {:?}", p);
+    pub fn read(&self) -> u8 {
+        debug!("R");
 
         let entry = self.events.get(&self.cur_button).unwrap();
         if *entry == 0 {
@@ -88,8 +87,8 @@ impl SNESController {
         }
     }
 
-    pub fn write(&mut self, p: periph::Port, val: u8) {
-        debug!("W {:?} = {:?}", p, val);
+    pub fn write(&mut self, val: u8) {
+        debug!("W = {:?}", val);
         match val {
             0x02 => {
                 self.cur_button = Button::A;
