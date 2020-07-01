@@ -1475,10 +1475,11 @@ impl<B : Bus> W65C02S<B> {
                         } else {
                             self.read(self.temp16) as u16
                         };
-                        let diff = op1.wrapping_sub(op2).wrapping_sub(
-                            1u16.wrapping_sub((self.p & (CPUFlag::Carry as u8)) as u16),
-                        );
+
+                        let carry_in = ((self.p & 1) ^ 1) as u16; // inverse of carry bit
+                        let diff = op1.wrapping_sub(op2).wrapping_sub(carry_in);
                         self.a = diff as u8;
+                        
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
                         // TODO self.update_carry_flag(??);
