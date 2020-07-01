@@ -1,12 +1,12 @@
 use crate::components::*;
 
-pub struct System {
+pub struct BreadboardSystem {
     cpu: W65C02S<SystemBus>,
 }
 
-impl System {
-    pub fn new(rom_path: &str) -> System {
-        System {
+impl BreadboardSystem {
+    pub fn new(rom_path: &str) -> BreadboardSystem {
+        BreadboardSystem {
             cpu: W65C02S::new(SystemBus::new(rom_path)),
         }
     }

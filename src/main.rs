@@ -2,15 +2,15 @@ use std::io::{self, Write};
 
 mod components;
 mod debugger;
-mod system;
+mod breadboard_system;
 
 use debugger::Debugger;
-use system::System;
+use breadboard_system::BreadboardSystem;
 
 fn main() {
     env_logger::init();
 
-    let mut sys = Debugger::new(System::new("rom.bin"), "rom.sym");
+    let mut sys = Debugger::new(BreadboardSystem::new("rom.bin"), "rom.sym");
     let mut last_command: Option<String> = None;
 
     // sys.run();

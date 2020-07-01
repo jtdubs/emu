@@ -12,14 +12,14 @@ use std::time::Instant;
 use timer::Timer;
 
 use crate::components::*;
-use crate::system::System;
+use crate::breadboard_system::BreadboardSystem;
 
 const CYCLE_NANOSECONDS: u64 = 1000;
 const CYCLES_PER_EPOCH: u64 = 10000;
 const WINDOW_SIZE: u64 = 200;
 
 pub struct Debugger {
-    pub sys: System,
+    pub sys: BreadboardSystem,
     pub breakpoints: Vec<u16>,
     pub sym2addr: HashMap<String, u16>,
     pub addr2sym: HashMap<u16, String>,
@@ -32,7 +32,7 @@ pub struct Debugger {
 }
 
 impl Debugger {
-    pub fn new(sys: System, sym_path: &str) -> Debugger {
+    pub fn new(sys: BreadboardSystem, sym_path: &str) -> Debugger {
         let mut sys = Debugger {
             sys: sys,
             breakpoints: Vec::new(),
