@@ -1,15 +1,13 @@
 use crate::components::*;
 
 pub struct System {
-    cpu: W65C02S,
-    bus: BusMembers,
+    cpu: W65C02S<SystemBus>,
 }
 
 impl System {
     pub fn new(rom_path: &str) -> System {
         System {
-            cpu: W65C02S::new(),
-            bus: BusMembers::new(rom_path),
+            cpu: W65C02S::new(SystemBus::new(rom_path)),
         }
     }
 
@@ -17,91 +15,90 @@ impl System {
         self.cpu.is_halted()
     }
 
-    pub fn get_cpu(&self) -> &W65C02S {
+    pub fn get_cpu(&self) -> &W65C02S<SystemBus> {
         &self.cpu
     }
 
     pub fn get_display(&mut self) -> &mut HD44780U {
-        &mut self.bus.pers.dsp
+        &mut self.cpu.bus.per.ports.dsp
     }
 
     pub fn get_ram(&self) -> &RAM {
-        &self.bus.ram
+        &self.cpu.bus.ram
     }
 
     pub fn get_controller(&mut self) -> &mut SNESController {
-        &mut self.bus.pers.con
+        &mut self.cpu.bus.per.ports.con
     }
 
-    pub fn get_peripheral_controller(&self) -> &W65C22 {
-        &self.bus.per
+    pub fn get_peripheral_controller(&self) -> &W65C22<Peripherals> {
+        &self.cpu.bus.per
     }
 
     pub fn peek(&mut self, addr: u16) -> u8 {
-        self.bus.peek(addr)
+        self.cpu.bus.peek(addr)
     }
 
     pub fn cycle(&mut self) {
-        self.cpu.cycle(&mut self.bus);
-        self.cpu.set_interrupt(self.bus.per.cycle());
-        self.bus.pers.dsp.cycle();
+        self.cpu.cycle();
+        let per_int = self.cpu.bus.per.cycle();
+        self.cpu.set_interrupt(per_int);
+        self.cpu.bus.per.ports.dsp.cycle();
     }
 }
 
-pub struct BusMembers {
-    pub per: W65C22,
+pub struct SystemBus {
+    pub per: W65C22<Peripherals>,
     pub ram: RAM,
     pub rom: ROM,
-    pub pers: Peripherals,
 }
 
-impl BusMembers {
+impl SystemBus {
     const ROM_SELECTOR: (u16, u16) = (0x8000, 0x8000);
     const RAM_SELECTOR: (u16, u16) = (0xC000, 0x0000);
     const PER_SELECTOR: (u16, u16) = (0xFFF0, 0x6000);
 
-    pub fn new(rom_path: &str) -> BusMembers {
-        BusMembers {
+    pub fn new(rom_path: &str) -> SystemBus {
+        SystemBus {
             rom: ROM::load(rom_path),
             ram: RAM::new(0x4000),
-            per: W65C22::new(),
-            pers: Peripherals::new(),
+            per: W65C22::new(Peripherals::new()),
         }
     }
 }
 
-impl Bus for BusMembers {
+impl Bus for SystemBus {
     fn peek(&self, addr: u16) -> u8 {
-        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
-            self.rom.peek(addr & !BusMembers::ROM_SELECTOR.0)
-        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
-            self.ram.peek(addr & !BusMembers::RAM_SELECTOR.0)
-        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
-            self.per.peek(addr & !BusMembers::PER_SELECTOR.0, &self.pers)
+        if addr & Self::ROM_SELECTOR.0 == Self::ROM_SELECTOR.1 {
+            self.rom.peek(addr & !Self::ROM_SELECTOR.0)
+        } else if addr & Self::RAM_SELECTOR.0 == Self::RAM_SELECTOR.1 {
+            self.ram.peek(addr & !Self::RAM_SELECTOR.0)
+        } else if addr & Self::PER_SELECTOR.0 == Self::PER_SELECTOR.1 {
+            self.per.peek(addr & !Self::PER_SELECTOR.0)
         } else {
             panic!("peek at unmapped address: {:02x}", addr);
         }
     }
 
     fn read(&mut self, addr: u16) -> u8 {
-        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
-            self.rom.read(addr & !BusMembers::ROM_SELECTOR.0)
-        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
-            self.ram.read(addr & !BusMembers::RAM_SELECTOR.0)
-        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
-            self.per.read(addr & !BusMembers::PER_SELECTOR.0, &mut self.pers)
+        if addr & Self::ROM_SELECTOR.0 == Self::ROM_SELECTOR.1 {
+            self.rom.read(addr & !Self::ROM_SELECTOR.0)
+        } else if addr & Self::RAM_SELECTOR.0 == Self::RAM_SELECTOR.1 {
+            self.ram.read(addr & !Self::RAM_SELECTOR.0)
+        } else if addr & Self::PER_SELECTOR.0 == Self::PER_SELECTOR.1 {
+            self.per.read(addr & !Self::PER_SELECTOR.0)
         } else {
             panic!("read at unmapped address: {:02x}", addr);
         }
     }
 
     fn write(&mut self, addr: u16, val: u8) {
-        if addr & BusMembers::ROM_SELECTOR.0 == BusMembers::ROM_SELECTOR.1 {
-            self.rom.write(addr & !BusMembers::ROM_SELECTOR.1, val);
-        } else if addr & BusMembers::RAM_SELECTOR.0 == BusMembers::RAM_SELECTOR.1 {
-            self.ram.write(addr & !BusMembers::RAM_SELECTOR.1, val);
-        } else if addr & BusMembers::PER_SELECTOR.0 == BusMembers::PER_SELECTOR.1 {
-            self.per.write(addr & !BusMembers::PER_SELECTOR.0, val, &mut self.pers);
+        if addr & Self::ROM_SELECTOR.0 == Self::ROM_SELECTOR.1 {
+            self.rom.write(addr & !Self::ROM_SELECTOR.1, val);
+        } else if addr & Self::RAM_SELECTOR.0 == Self::RAM_SELECTOR.1 {
+            self.ram.write(addr & !Self::RAM_SELECTOR.1, val);
+        } else if addr & Self::PER_SELECTOR.0 == Self::PER_SELECTOR.1 {
+            self.per.write(addr & !Self::PER_SELECTOR.0, val);
         } else {
             panic!("write at unmapped address: {:02x}", addr);
         }

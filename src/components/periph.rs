@@ -20,7 +20,7 @@ pub trait Ports {
 }
 
 #[allow(dead_code)]
-pub struct W65C22 {
+pub struct W65C22<P : Ports> {
     pub orb: u8,
     pub ora: u8,
     pub ddrb: u8,
@@ -33,9 +33,10 @@ pub struct W65C22 {
     pub pcr: u8,
     pub ifr: Cell<u8>,
     pub ier: u8,
+    pub ports: P
 }
 
-impl fmt::Debug for W65C22 {
+impl<P : Ports> fmt::Debug for W65C22<P> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("W65C22")
             .field("orb", &self.orb)
@@ -46,8 +47,8 @@ impl fmt::Debug for W65C22 {
     }
 }
 
-impl W65C22 {
-    pub fn new() -> W65C22 {
+impl<P : Ports> W65C22<P> {
+    pub fn new(ports: P) -> W65C22<P> {
         W65C22 {
             orb: 0,
             ora: 0,
@@ -61,6 +62,7 @@ impl W65C22 {
             pcr: 0,
             ifr: Cell::new(0),
             ier: 0,
+            ports: ports,
         }
     }
 
@@ -114,9 +116,9 @@ impl W65C22 {
         (self.ifr.get() & self.ier) != 0
     }
 
-    pub fn peek(&self, addr: u16, ports: &impl Ports) -> u8 {
+    pub fn peek(&self, addr: u16) -> u8 {
         match addr {
-            0x0 => (self.orb & self.ddrb) | (ports.peek(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (self.ports.peek(Port::B) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -145,15 +147,15 @@ impl W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (ports.peek(Port::A) & !self.ddra)
+                    | (self.ports.peek(Port::A) & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
     }
 
-    pub fn read(&self, addr: u16, ports: &mut impl Ports) -> u8 {
+    pub fn read(&mut self, addr: u16) -> u8 {
         let data = match addr {
-            0x0 => (self.orb & self.ddrb) | (ports.read(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (self.ports.read(Port::B) & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -188,7 +190,7 @@ impl W65C22 {
             0xE => self.ier,
             0xF => {
                 (self.ora & self.ddra)
-                    | (ports.read(Port::A) & !self.ddra)
+                    | (self.ports.read(Port::A) & !self.ddra)
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         };
@@ -196,12 +198,12 @@ impl W65C22 {
         data
     }
 
-    pub fn write(&mut self, addr: u16, data: u8, ports: &mut impl Ports) {
+    pub fn write(&mut self, addr: u16, data: u8) {
         debug!("W @ {:04x} = {:02x}", addr, data);
         match addr {
             0x0 => {
                 self.orb = data & self.ddrb;
-                ports.write(Port::B, self.orb);
+                self.ports.write(Port::B, self.orb);
             }
             0x1 => {
                 unimplemented!("W65C22 - Access to ORA w/ handshake");
@@ -250,7 +252,7 @@ impl W65C22 {
             }
             0xF => {
                 self.ora = data & self.ddra;
-                ports.write(Port::A, self.ora);
+                self.ports.write(Port::A, self.ora);
             }
             _ => panic!("attempt to access invalid W65C22 register: {}", addr),
         }
