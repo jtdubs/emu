@@ -172,7 +172,17 @@ impl Debugger {
                             break;
                         }
                         event::KeyCode::Char(c) => {
-                            self.sys.get_controller().on_key(c);
+                            match c {
+                                'w' => { self.sys.get_controller().on_press(Button::Up); self.sys.get_controller().on_release(Button::Up); }
+                                's' => { self.sys.get_controller().on_press(Button::Down); self.sys.get_controller().on_release(Button::Down); }
+                                'a' => { self.sys.get_controller().on_press(Button::Left); self.sys.get_controller().on_release(Button::Left); }
+                                'd' => { self.sys.get_controller().on_press(Button::Right); self.sys.get_controller().on_release(Button::Right); }
+                                'j' => { self.sys.get_controller().on_press(Button::A); self.sys.get_controller().on_release(Button::A); }
+                                'k' => { self.sys.get_controller().on_press(Button::B); self.sys.get_controller().on_release(Button::B); }
+                                'l' => { self.sys.get_controller().on_press(Button::Select); self.sys.get_controller().on_release(Button::Select); }
+                                ';' => { self.sys.get_controller().on_press(Button::Start); self.sys.get_controller().on_release(Button::Start); }
+                                _ => {}
+                            }
                         }
                         _ => {}
                     },
