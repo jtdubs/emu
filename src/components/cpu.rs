@@ -67,7 +67,7 @@ pub enum Instruction {
     LDX,
     LDY,
     LSR,
-    NOP,
+    NOP(u8, u8),
     ORA,
     PHA,
     PHP,
@@ -256,7 +256,56 @@ fn decode(val: u8) -> Option<Opcode> {
         0x46 => Some((Instruction::LSR, AddressMode::ZeroPage)),
         0x56 => Some((Instruction::LSR, AddressMode::ZeroPageIndexedWithX)),
 
-        0xEA => Some((Instruction::NOP, AddressMode::Implied)),
+        0xEA => Some((Instruction::NOP(1, 2), AddressMode::Implied)),
+        
+        0x02 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0x22 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0x42 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0x62 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0x82 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0xC2 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        0xE2 => Some((Instruction::NOP(2, 2), AddressMode::Implied)),
+        
+        0x03 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x13 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x23 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x33 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x43 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x53 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x63 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x73 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x83 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x93 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xA3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xB3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xC3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xD3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xE3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xF3 => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+
+        0x44 => Some((Instruction::NOP(2, 3), AddressMode::Implied)),
+        0x54 => Some((Instruction::NOP(2, 4), AddressMode::Implied)),
+        0xD4 => Some((Instruction::NOP(2, 4), AddressMode::Implied)),
+        0xF4 => Some((Instruction::NOP(2, 4), AddressMode::Implied)),
+
+        0x0B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x1B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x2B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x3B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x4B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x5B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x6B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x7B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x8B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0x9B => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xAB => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xBB => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xEB => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        0xFB => Some((Instruction::NOP(1, 1), AddressMode::Implied)),
+        
+        0x5C => Some((Instruction::NOP(3, 8), AddressMode::Implied)),
+        0xDC => Some((Instruction::NOP(3, 4), AddressMode::Implied)),
+        0xFC => Some((Instruction::NOP(3, 4), AddressMode::Implied)),
 
         0x0D => Some((Instruction::ORA, AddressMode::Absolute)),
         0x1D => Some((Instruction::ORA, AddressMode::AbsoluteIndexedWithX)),
@@ -363,8 +412,6 @@ fn decode(val: u8) -> Option<Opcode> {
         0x98 => Some((Instruction::TYA, AddressMode::Implied)),
 
         0xCB => Some((Instruction::WAI, AddressMode::Implied)),
-
-        _ => None,
     }
 }
 
@@ -425,7 +472,7 @@ impl<BusType: Bus> W65C02S<BusType> {
     pub fn new(bus : BusType) -> W65C02S<BusType> {
         W65C02S {
             state: CPUState::Init(0),
-            ir: (Instruction::NOP, AddressMode::Implied),
+            ir: (Instruction::NOP(0, 0), AddressMode::Implied),
             tcu: 0,
             a: 0,
             x: 0,
@@ -549,7 +596,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                 _ => self.state = CPUState::Init(c + 1),
             },
             CPUState::Run => {
-                match (&self.ir, &self.tcu) {
+                match (self.ir, self.tcu) {
                     // First step is always to fetch the next instruction
                     (_, 0) => {
                         if (self.p & (CPUFlag::IRQB as u8) == 0) && self.interrupt {
@@ -562,7 +609,12 @@ impl<BusType: Bus> W65C02S<BusType> {
                                 Some(opcode) => {
                                     debug!("DECODE: {:x?}", opcode);
                                     self.ir = opcode;
-                                    self.tcu += 1;
+
+                                    if self.ir.0 == Instruction::NOP(1, 1) {
+                                        self.tcu = 0;
+                                    } else {
+                                        self.tcu += 1;
+                                    }
                                 }
                                 None => {
                                     debug!("FAILED DECODE: {:x?}", val);
@@ -1190,8 +1242,14 @@ impl<BusType: Bus> W65C02S<BusType> {
                     //
                     // NOP i
                     //
-                    ((Instruction::NOP, AddressMode::Implied), 1) => {
-                        self.tcu = 0;
+                    ((Instruction::NOP(bytes, cycles), AddressMode::Implied), tcu) => {
+                        if tcu < bytes {
+                            self.fetch();
+                        }
+                        self.tcu += 1;
+                        if tcu == cycles {
+                            self.tcu = 0;
+                        }
                     }
 
                     //
