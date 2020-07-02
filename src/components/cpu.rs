@@ -785,11 +785,18 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::BIT, AddressMode::ZeroPageIndexedWithX), 3)
                     | ((Instruction::BIT, AddressMode::Absolute), 3)
                     | ((Instruction::BIT, AddressMode::AbsoluteIndexedWithX), 3) => {
-                        let operand = self.read(self.temp16);
+                        let operand = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            self.fetch()
+                        } else {
+                            self.read(self.temp16)
+                        };
+
                         let val = self.a & operand;
                         self.update_zero_flag(val == 0);
-                        self.update_overflow_flag(operand & 0x40 == 0x40);
-                        self.update_negative_flag(operand);
+                        if self.ir.1 != AddressMode::ImmediateAddressing {
+                            self.update_overflow_flag(operand & 0x40 == 0x40);
+                            self.update_negative_flag(operand);
+                        }
                         self.tcu = 0;
                     }
 
@@ -847,6 +854,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     }
                     ((Instruction::BRK, _), 5) => {
                         self.p |= CPUFlag::IRQB as u8;
+                        self.p &= !(CPUFlag::Decimal as u8);
                         self.pc = self.read(0xFFFE) as u16;
                         self.tcu += 1;
                     }
@@ -1385,7 +1393,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     // RMB
                     //
                     ((Instruction::RMB(_), AddressMode::ZeroPage), 2) => {
-                        self.temp8 = self.fetch();
+                        self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
                     ((Instruction::RMB(n), AddressMode::ZeroPage), 3) => {
@@ -1584,7 +1592,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     // SMB
                     //
                     ((Instruction::SMB(_), AddressMode::ZeroPage), 2) => {
-                        self.temp8 = self.fetch();
+                        self.temp8 = self.read(self.temp16);
                         self.tcu += 1;
                     }
                     ((Instruction::SMB(n), AddressMode::ZeroPage), 3) => {
@@ -1683,7 +1691,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     }
                     ((Instruction::TRB, AddressMode::ZeroPage), 3)
                     | ((Instruction::TRB, AddressMode::Absolute), 4) => {
-                        self.update_zero_flag(self.temp8 & self.a != 0);
+                        self.update_zero_flag(self.temp8 & self.a == 0);
                         self.temp8 &= !self.a;
                         self.tcu += 1;
                     }
@@ -1703,7 +1711,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     }
                     ((Instruction::TSB, AddressMode::ZeroPage), 3)
                     | ((Instruction::TSB, AddressMode::Absolute), 4) => {
-                        self.update_zero_flag(self.temp8 & self.a != 0);
+                        self.update_zero_flag(self.temp8 & self.a == 0);
                         self.temp8 |= self.a;
                         self.tcu += 1;
                     }
