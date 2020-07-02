@@ -337,7 +337,7 @@ fn decode(val: u8) -> Option<Opcode> {
 
         0x8E => Some((Instruction::STX, AddressMode::Absolute)),
         0x86 => Some((Instruction::STX, AddressMode::ZeroPage)),
-        0x96 => Some((Instruction::STX, AddressMode::ZeroPageIndexedWithX)),
+        0x96 => Some((Instruction::STX, AddressMode::ZeroPageIndexedWithY)),
 
         0x8C => Some((Instruction::STY, AddressMode::Absolute)),
         0x84 => Some((Instruction::STY, AddressMode::ZeroPage)),
@@ -732,10 +732,12 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::BIT, AddressMode::ZeroPageIndexedWithX), 3)
                     | ((Instruction::BIT, AddressMode::Absolute), 3)
                     | ((Instruction::BIT, AddressMode::AbsoluteIndexedWithX), 3) => {
-                        let val = self.a & self.read(self.temp16);
+                        let operand = self.read(self.temp16);
+                        let val = self.a & operand;
                         self.update_zero_flag(val == 0);
-                        self.update_overflow_flag(val & 0x40 == 0x40);
-                        self.update_negative_flag(val);
+                        self.update_overflow_flag(operand & 0x40 == 0x40);
+                        self.update_negative_flag(operand);
+                        self.tcu = 0;
                     }
 
                     //
@@ -1567,7 +1569,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     // STX
                     //
                     ((Instruction::STX, AddressMode::ZeroPage), 2)
-                    | ((Instruction::STX, AddressMode::ZeroPageIndexedWithX), 3)
+                    | ((Instruction::STX, AddressMode::ZeroPageIndexedWithY), 3)
                     | ((Instruction::STX, AddressMode::Absolute), 3) => {
                         self.write(self.temp16, self.x);
                         self.tcu = 0;
@@ -1751,13 +1753,13 @@ impl<BusType: Bus> W65C02S<BusType> {
 
                     // Offset by x
                     ((_, AddressMode::ZeroPageIndexedWithX), 2) => {
-                        self.temp16 += self.x as u16;
+                        self.temp16 = (self.temp16 + (self.x as u16)) % 0x100;
                         self.tcu += 1;
                     }
 
                     // Offset by y
                     ((_, AddressMode::ZeroPageIndexedWithY), 2) => {
-                        self.temp16 += self.y as u16;
+                        self.temp16 = (self.temp16 + (self.y as u16)) % 0x100;
                         self.tcu += 1;
                     }
 

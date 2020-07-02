@@ -445,7 +445,7 @@ fn show_bytes(source: &[u8], offset: usize) {
     let chunks = source.as_ref().chunks(16);
 
     for (i, row) in chunks.enumerate() {
-        if row.iter().all(|x| *x == 0) {
+        if row.iter().all(|x| *x == 255) {
             if !eliding {
                 println!("*");
                 eliding = true;
