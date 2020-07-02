@@ -1,5 +1,8 @@
 TODO:
-- 6502 instruction testing - Currently running up to decimal mode tests, which are not implemented...
+- 6502 instruction testing
+    - functional_test_no_decimal - PASSED
+    - functional_test - FAILED as decimal mode
+    - extended_opcodes - NOT TESTED
 - decimal mode??
 - Better command-line invocation
 - Better error handling (less panics)

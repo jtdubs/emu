@@ -17,7 +17,8 @@ fn main() {
 
     match env::args().nth(1).unwrap_or("breadboard".to_string()).as_str() {
         "cpu_test" => {
-            run(Debugger::new(CPUTestSystem::new("6502_functional_test_no_decimal.bin", 0x400)))
+            let rom = env::args().nth(2).unwrap();
+            run(Debugger::new(CPUTestSystem::new(rom.as_str(), 0x400)))
         }
         "breadboard" => {
             let mut d = Debugger::new(BreadboardSystem::new("rom.bin"));

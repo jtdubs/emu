@@ -566,6 +566,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                                 }
                                 None => {
                                     debug!("FAILED DECODE: {:x?}", val);
+                                    panic!("FAILED DECODE: {:x?} at {:x?}", val, self.pc);
                                     self.state = CPUState::Halt;
                                 }
                             }
