@@ -596,8 +596,8 @@ impl<BusType: Bus> W65C02S<BusType> {
                         self.a = sum as u8;
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
-                        self.update_carry_flag(sum > 0xff);
-                        self.update_overflow_flag(((sum ^ op1) | (sum ^ op2)) & 0x80 == 0x80);
+                        self.update_carry_flag(sum & 0x100 == 0x100);
+                        self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
                         self.tcu = 0;
                     }
 
@@ -1479,20 +1479,22 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
                         let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
-                            self.fetch() as u16
+                            (!self.fetch()) as u16
                         } else {
-                            self.read(self.temp16) as u16
+                            (!self.read(self.temp16)) as u16
                         };
 
-                        let carry_in = ((self.p & 1) ^ 1) as u16; // inverse of carry bit
-                        let diff = op1.wrapping_sub(op2).wrapping_sub(carry_in);
-                        self.a = diff as u8;
-                        
+                        let sum = op1
+                            .wrapping_add(op2)
+                            .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
+                        self.a = sum as u8;
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
-                        // TODO self.update_carry_flag(??);
-                        // TODO self.update_overflow_flag(??);
+                        self.update_carry_flag(sum & 0x100 == 0x100);
+                        self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
                         self.tcu = 0;
+
+                        // 0x7F - 0xFF w/ Carry should be 0x80 w/ flags c0 (negative and overflow).  i'm missing overflow flag.
                     }
 
                     //

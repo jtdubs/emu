@@ -1,5 +1,5 @@
 TODO:
-- 6502 instruction testing - Currently running functional test up to 0x1b6f
+- 6502 instruction testing - Currently running up to decimal mode tests, which are not implemented...
 - decimal mode??
 - Better command-line invocation
 - Better error handling (less panics)

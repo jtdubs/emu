@@ -115,7 +115,13 @@ impl<SystemType: System> Debugger<SystemType> {
         self.bench = false;
     }
 
-    pub fn run(&mut self) {
+    pub fn bench_n(&mut self, skip_breakpoints: u32) {
+        self.bench = true;
+        self.run_n(skip_breakpoints);
+        self.bench = false;
+    }
+
+    pub fn run_n(&mut self, mut skip_breakpoints: u32) {
         let mut stdout = stdout();
         let cycle_schedule = self.start_timer();
 
@@ -196,7 +202,11 @@ impl<SystemType: System> Debugger<SystemType> {
             }
 
             if self.breakpoints.contains(&(self.sys.get_cpu().pc - 1)) {
-                break;
+                if skip_breakpoints == 0 {
+                    break;
+                } else {
+                    skip_breakpoints -= 1;
+                }
             }
 
             if let Some(dsp) = self.sys.get_display() {
@@ -243,6 +253,10 @@ impl<SystemType: System> Debugger<SystemType> {
         drop(cycle_schedule);
         drop(fps_schedule);
         key_exit.store(true, Ordering::Release)
+    }
+
+    pub fn run(&mut self) {
+        self.run_n(1);
     }
 
     pub fn list_breakpoints(&self) {

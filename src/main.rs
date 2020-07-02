@@ -17,7 +17,7 @@ fn main() {
 
     match env::args().nth(1).unwrap_or("breadboard".to_string()).as_str() {
         "cpu_test" => {
-            run(Debugger::new(CPUTestSystem::new("6502_functional_test.bin", 0x400)))
+            run(Debugger::new(CPUTestSystem::new("6502_functional_test_no_decimal.bin", 0x400)))
         }
         "breadboard" => {
             let mut d = Debugger::new(BreadboardSystem::new("rom.bin"));
@@ -52,12 +52,14 @@ fn run<SystemType: System>(mut dbg: Debugger<SystemType>) {
 
         match words.next().unwrap_or("") {
             "run" | "r" => {
-                dbg.run();
+                let n: u32 = words.next().unwrap_or("1").parse().unwrap_or(1u32);
+                dbg.run_n(n);
                 dbg.show_cpu();
                 dbg.show_per();
             }
             "bench" => {
-                dbg.bench();
+                let n: u32 = words.next().unwrap_or("1").parse().unwrap_or(1u32);
+                dbg.bench_n(n);
             }
             "headless" | "head" | "rh" => {
                 dbg.run_headless();
