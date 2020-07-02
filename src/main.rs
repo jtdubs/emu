@@ -53,13 +53,13 @@ fn run<SystemType: System>(mut dbg: Debugger<SystemType>) {
 
         match words.next().unwrap_or("") {
             "run" | "r" => {
-                let n: u32 = words.next().unwrap_or("1").parse().unwrap_or(1u32);
+                let n: u32 = words.next().unwrap_or("0").parse().unwrap_or(1u32);
                 dbg.run_n(n);
                 dbg.show_cpu();
                 dbg.show_per();
             }
             "bench" => {
-                let n: u32 = words.next().unwrap_or("1").parse().unwrap_or(1u32);
+                let n: u32 = words.next().unwrap_or("0").parse().unwrap_or(1u32);
                 dbg.bench_n(n);
             }
             "headless" | "head" | "rh" => {
