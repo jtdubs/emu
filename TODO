@@ -1,8 +1,7 @@
 TODO:
 - 6502 instruction testing
     - functional_test_no_decimal - PASSED
-    - functional_test - FAILED as decimal mode
-    - extended_opcodes - NOT TESTED
+    - extended_opcodes_no_decimal - PASSED
 - decimal mode??
 - Better command-line invocation
 - Better error handling (less panics)
