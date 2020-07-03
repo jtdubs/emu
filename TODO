@@ -6,3 +6,14 @@ Timing history:
 - Re-write: 33MHz
 - Desktop PC: 100MHz
 - Timer: 1.00MHz
+
+Commodore 64:
+- https://en.wikipedia.org/wiki/Commodore_64#Specifications
+- 6526 CIA - https://en.wikipedia.org/wiki/MOS_Technology_CIA
+- 6581 or 8580 SID - https://en.wikipedia.org/wiki/MOS_Technology_6581
+- 6567 or 8562 NTSC chips - https://en.wikipedia.org/wiki/MOS_Technology_VIC-II
+
+NES:
+- Ricoh 2A03 (based on 6502)
+- Ricoh 2C02
+- NES controller
