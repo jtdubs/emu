@@ -633,15 +633,55 @@ impl<BusType: Bus> W65C02S<BusType> {
                         } else {
                             self.read(self.temp16) as u16
                         };
+
+                        if self.p & (CPUFlag::Decimal as u8) == 0 {
                         let sum = op1
                             .wrapping_add(op2)
                             .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                         self.a = sum as u8;
+                            
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
                         self.update_carry_flag(sum & 0x100 == 0x100);
                         self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
                         self.tcu = 0;
+                        } else {
+                            let carry_in = (self.p & (CPUFlag::Carry as u8)) as u16;
+
+                            let mut sum = (op1 & 0xf) + (op2 & 0xf) + carry_in;
+                            if sum > 9 {
+                                sum += 0x06;
+                            }
+
+                            sum += (op1 & 0xf0) + (op2 & 0xf0);
+                            if (sum >> 4) > 9 {
+                                sum += 0x60;
+                            }
+
+                            self.a = sum as u8;
+
+                            self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
+                            self.update_carry_flag(sum & 0xFF00 != 0);
+                            self.update_zero_flag(self.a == 0);
+                            self.update_negative_flag(self.a);
+                                                        
+                            self.tcu += 1;
+                        }
+                    }
+                    ((Instruction::ADC, AddressMode::ImmediateAddressing), 2)
+                    | ((Instruction::ADC, AddressMode::ZeroPage), 3)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::ADC, AddressMode::Absolute), 4)
+                    | ((Instruction::ADC, AddressMode::AbsoluteIndexedWithX), 4)
+                    | ((Instruction::ADC, AddressMode::AbsoluteIndexedWithY), 4)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndexedIndirect), 6)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndirectIndexedWithY), 5)
+                    | ((Instruction::ADC, AddressMode::ZeroPageIndirect), 5) => {
+                        if self.p & (CPUFlag::Decimal as u8) == 0 {
+                            panic!("ADC can only take an extra cycle in decimal mode!");
+                        } else {                            
+                            self.tcu = 0;
+                    }
                     }
 
                     //
@@ -1535,23 +1575,97 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 4)
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
+                        
+
+                        if self.p & (CPUFlag::Decimal as u8) == 0 {
                         let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
-                            (!self.fetch()) as u16
+                                !self.fetch() as u16
                         } else {
-                            (!self.read(self.temp16)) as u16
+                                !self.read(self.temp16) as u16
                         };
 
                         let sum = op1
                             .wrapping_add(op2)
                             .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                         self.a = sum as u8;
+
                         self.update_zero_flag(self.a == 0);
                         self.update_negative_flag(self.a);
                         self.update_carry_flag(sum & 0x100 == 0x100);
                         self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
-                        self.tcu = 0;
 
-                        // 0x7F - 0xFF w/ Carry should be 0x80 w/ flags c0 (negative and overflow).  i'm missing overflow flag.
+                        self.tcu = 0;
+                        } else {
+                            let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                                self.fetch() as u16
+                            } else {
+                                self.read(self.temp16) as u16
+                            };
+                            
+                            // println!("{:04x?} - {:04x?} = ??", op1, op2);
+                            // println!("flags: {:02x?}", self.p);
+
+
+                            let mut nines_complement = 0x99u16.wrapping_sub(op2);
+                            if nines_complement & 0x0f > 9 {
+                                nines_complement = nines_complement.wrapping_add(0x06);
+                            }
+                            if (nines_complement >> 4) > 9 {
+                                nines_complement = nines_complement.wrapping_add(0x60);
+                            }
+                            // println!("nines complement of 0x{:02x?} is 0x{:04x?}", op2, nines_complement);
+
+                            // println!("flags: {:02x?}", self.p);
+
+                            let carry_in = if (self.p & (CPUFlag::Carry as u8)) == 0 {
+                                0x00
+                            } else {
+                                0x01
+                            };
+
+                            // println!("{:04x?} + {:04x?} + {:04x?} = ??", op1, nines_complement, carry_in);
+
+                            let mut sum = (op1 & 0x0f).wrapping_add(nines_complement & 0x0f).wrapping_add(carry_in);
+
+                            // println!("sum is 0x{:04x}", sum);
+
+                            if sum > 9 {
+                                sum = sum.wrapping_add(0x06);
+                            }
+
+                            sum = sum.wrapping_add(op1 & 0xf0).wrapping_add(nines_complement & 0xf0);
+                            if (sum >> 4) > 9 {
+                                sum = sum.wrapping_add(0x60);
+                            }
+
+                            // println!("sum is 0x{:04x}", sum);
+
+                            self.a = (sum & 0xff) as u8;
+
+                            // println!("a is 0x{:02x}", self.a);
+
+                            self.update_overflow_flag(((sum ^ op1) & (sum ^ nines_complement)) & 0x80 == 0x80);
+                            self.update_carry_flag(sum & 0xFF00 != 0);
+                            self.update_zero_flag(self.a == 0);
+                            self.update_negative_flag(self.a);
+                                                        
+                            self.tcu += 1;
+                        }
+                    }
+                    ((Instruction::SBC, AddressMode::ImmediateAddressing), 2)
+                    | ((Instruction::SBC, AddressMode::ZeroPage), 3)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndexedWithX), 4)
+                    | ((Instruction::SBC, AddressMode::Absolute), 4)
+                    | ((Instruction::SBC, AddressMode::AbsoluteIndexedWithX), 4)
+                    | ((Instruction::SBC, AddressMode::AbsoluteIndexedWithY), 4)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndexedIndirect), 6)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 5)
+                    | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 5) => {
+                        if self.p & (CPUFlag::Decimal as u8) == 0 {
+                            panic!("extra cycle only needed in non-decimal mode");
+                        } else {                            
+                            self.tcu = 0;
+                        }
                     }
 
                     //
