@@ -6,7 +6,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/emu.exe",
-            "args": ["cpu_test", "65C02_extended_opcodes_test.bin"],
+            "args": ["cpu_test", "cpu_tests/6502_functional_test.bin"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

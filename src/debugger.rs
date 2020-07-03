@@ -295,7 +295,7 @@ impl<SystemType: System> Debugger<SystemType> {
 
     pub fn show_cpu(&mut self) {
         let cpu = self.sys.get_cpu();
-        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc-1);
+        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc.wrapping_sub(1));
 
         self.show_instruction();
 

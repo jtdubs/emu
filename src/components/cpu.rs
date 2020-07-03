@@ -635,16 +635,16 @@ impl<BusType: Bus> W65C02S<BusType> {
                         };
 
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
-                        let sum = op1
-                            .wrapping_add(op2)
-                            .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
-                        self.a = sum as u8;
+                            let sum = op1
+                                .wrapping_add(op2)
+                                .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
+                            self.a = sum as u8;
                             
-                        self.update_zero_flag(self.a == 0);
-                        self.update_negative_flag(self.a);
-                        self.update_carry_flag(sum & 0x100 == 0x100);
-                        self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
-                        self.tcu = 0;
+                            self.update_zero_flag(self.a == 0);
+                            self.update_negative_flag(self.a);
+                            self.update_carry_flag(sum & 0x100 == 0x100);
+                            self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
+                            self.tcu = 0;
                         } else {
                             let carry_in = (self.p & (CPUFlag::Carry as u8)) as u16;
 
@@ -681,7 +681,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                             panic!("ADC can only take an extra cycle in decimal mode!");
                         } else {                            
                             self.tcu = 0;
-                    }
+                        }
                     }
 
                     //
@@ -1578,23 +1578,23 @@ impl<BusType: Bus> W65C02S<BusType> {
                         
 
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
-                        let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
+                            let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
                                 !self.fetch() as u16
-                        } else {
+                            } else {
                                 !self.read(self.temp16) as u16
-                        };
+                            };
+                            
+                            let sum = op1
+                                .wrapping_add(op2)
+                                .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
+                            self.a = sum as u8;
 
-                        let sum = op1
-                            .wrapping_add(op2)
-                            .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
-                        self.a = sum as u8;
+                            self.update_zero_flag(self.a == 0);
+                            self.update_negative_flag(self.a);
+                            self.update_carry_flag(sum & 0x100 == 0x100);
+                            self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
 
-                        self.update_zero_flag(self.a == 0);
-                        self.update_negative_flag(self.a);
-                        self.update_carry_flag(sum & 0x100 == 0x100);
-                        self.update_overflow_flag(((sum ^ op1) & (sum ^ op2)) & 0x80 == 0x80);
-
-                        self.tcu = 0;
+                            self.tcu = 0;
                         } else {
                             let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
                                 self.fetch() as u16
@@ -1919,7 +1919,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                         if offset >= 0 {
                             self.pc += offset as u16;
                         } else {
-                            self.pc -= offset.abs() as u16;
+                            self.pc -= (offset as i16).abs() as u16;
                         }
                         self.tcu = 0;
                     }
@@ -1946,7 +1946,7 @@ impl<BusType: Bus> W65C02S<BusType> {
 
                     // Offset temp8 by x
                     ((_, AddressMode::ZeroPageIndexedIndirect), 2) => {
-                        self.temp8 += self.x;
+                        self.temp8 = self.temp8.wrapping_add(self.x);
                         self.tcu += 1;
                     }
 
