@@ -8,10 +8,9 @@ pub struct RAM {
 impl RAM {
     pub fn load(path: &str) -> RAM {
         RAM {
-            mem: fs::read(path).unwrap()
+            mem: fs::read(path).unwrap(),
         }
     }
-
 
     pub fn new(size: usize) -> RAM {
         let mut storage = Vec::new();

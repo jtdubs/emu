@@ -11,7 +11,8 @@ use std::thread;
 use std::time::Instant;
 use timer::Timer;
 
-use crate::components::*;
+use crate::component::mos6502;
+use crate::component::snes_controller::Button;
 use crate::system::System;
 
 const CYCLE_NANOSECONDS: u64 = 1000;
@@ -19,16 +20,16 @@ const CYCLES_PER_EPOCH: u64 = 10000;
 const WINDOW_SIZE: u64 = 200;
 
 pub struct Debugger<SystemType: System> {
-    pub sys: SystemType,
-    pub breakpoints: Vec<u16>,
-    pub sym2addr: HashMap<String, u16>,
-    pub addr2sym: HashMap<u16, String>,
-    pub cycle_count: u64,
-    pub epoch_start: Instant,
-    pub avg_nanos_per_epoch: u64,
-    pub timer: Timer,
-    pub cycle_gate: Arc<(Condvar, Mutex<u32>)>,
-    pub bench: bool,
+    sys: SystemType,
+    breakpoints: Vec<u16>,
+    sym2addr: HashMap<String, u16>,
+    addr2sym: HashMap<u16, String>,
+    cycle_count: u64,
+    epoch_start: Instant,
+    avg_nanos_per_epoch: u64,
+    timer: Timer,
+    cycle_gate: Arc<(Condvar, Mutex<u32>)>,
+    bench: bool,
 }
 
 impl<SystemType: System> Debugger<SystemType> {
@@ -54,7 +55,7 @@ impl<SystemType: System> Debugger<SystemType> {
     }
 
     pub fn step_over(&mut self) {
-        if self.sys.get_cpu().ir.0 == cpu::Instruction::JSR {
+        if self.sys.get_cpu().ir.0 == mos6502::Instruction::JSR {
             self.breakpoints.push(self.sys.get_cpu().pc + 2);
             self.run();
             self.breakpoints.pop();
@@ -70,8 +71,8 @@ impl<SystemType: System> Debugger<SystemType> {
 
         loop {
             match self.sys.get_cpu().ir.0 {
-                cpu::Instruction::JSR => depth += 1,
-                cpu::Instruction::RTS => depth -= 1,
+                mos6502::Instruction::JSR => depth += 1,
+                mos6502::Instruction::RTS => depth -= 1,
                 _ => {}
             }
 
@@ -179,14 +180,38 @@ impl<SystemType: System> Debugger<SystemType> {
                         event::KeyCode::Char(c) => {
                             if let Some(con) = self.sys.get_controller() {
                                 match c {
-                                    'w' => { con.on_press(Button::Up); con.on_release(Button::Up); }
-                                    's' => { con.on_press(Button::Down); con.on_release(Button::Down); }
-                                    'a' => { con.on_press(Button::Left); con.on_release(Button::Left); }
-                                    'd' => { con.on_press(Button::Right); con.on_release(Button::Right); }
-                                    'j' => { con.on_press(Button::A); con.on_release(Button::A); }
-                                    'k' => { con.on_press(Button::B); con.on_release(Button::B); }
-                                    'l' => { con.on_press(Button::Select); con.on_release(Button::Select); }
-                                    ';' => { con.on_press(Button::Start); con.on_release(Button::Start); }
+                                    'w' => {
+                                        con.on_press(Button::Up);
+                                        con.on_release(Button::Up);
+                                    }
+                                    's' => {
+                                        con.on_press(Button::Down);
+                                        con.on_release(Button::Down);
+                                    }
+                                    'a' => {
+                                        con.on_press(Button::Left);
+                                        con.on_release(Button::Left);
+                                    }
+                                    'd' => {
+                                        con.on_press(Button::Right);
+                                        con.on_release(Button::Right);
+                                    }
+                                    'j' => {
+                                        con.on_press(Button::A);
+                                        con.on_release(Button::A);
+                                    }
+                                    'k' => {
+                                        con.on_press(Button::B);
+                                        con.on_release(Button::B);
+                                    }
+                                    'l' => {
+                                        con.on_press(Button::Select);
+                                        con.on_release(Button::Select);
+                                    }
+                                    ';' => {
+                                        con.on_press(Button::Start);
+                                        con.on_release(Button::Start);
+                                    }
                                     _ => {}
                                 }
                             }
@@ -220,7 +245,8 @@ impl<SystemType: System> Debugger<SystemType> {
                             line1,
                             line2,
                             1000.0
-                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE))
+                                    as f32,
                             self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
                         )),
                         terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
@@ -237,7 +263,8 @@ impl<SystemType: System> Debugger<SystemType> {
                         Print(format!(
                             "\n> {:2.2?}MHz ({:?}ns)",
                             1000.0
-                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)) as f32,
+                                / (self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE))
+                                    as f32,
                             self.avg_nanos_per_epoch / (CYCLES_PER_EPOCH * WINDOW_SIZE)
                         )),
                         terminal::Clear(crossterm::terminal::ClearType::UntilNewLine),
@@ -295,7 +322,11 @@ impl<SystemType: System> Debugger<SystemType> {
 
     pub fn show_cpu(&mut self) {
         let cpu = self.sys.get_cpu();
-        print!("<{}> {:04x}: ", get_flag_string(cpu.p), cpu.pc.wrapping_sub(1));
+        print!(
+            "<{}> {:04x}: ",
+            get_flag_string(cpu.p),
+            cpu.pc.wrapping_sub(1)
+        );
 
         self.show_instruction();
 
@@ -425,22 +456,22 @@ impl<SystemType: System> Debugger<SystemType> {
         print!("{:?}", opcode);
 
         match address_mode {
-            cpu::AddressMode::Absolute => print!(" {}", sym),
-            cpu::AddressMode::AbsoluteIndexedIndirect => print!(" ({},x)", sym),
-            cpu::AddressMode::AbsoluteIndexedWithX => print!(" {},x", sym),
-            cpu::AddressMode::AbsoluteIndexedWithY => print!(" {},y", sym),
-            cpu::AddressMode::AbsoluteIndirect => print!(" ({})", sym),
-            cpu::AddressMode::Accumulator => {}
-            cpu::AddressMode::ImmediateAddressing => print!(" #${:02x}", arg8),
-            cpu::AddressMode::Implied => {}
-            cpu::AddressMode::ProgramCounterRelative => print!(" #${:02x}", arg8),
-            cpu::AddressMode::Stack => {}
-            cpu::AddressMode::ZeroPage => print!(" ${:02x}", arg8),
-            cpu::AddressMode::ZeroPageIndexedIndirect => print!(" (${:02x},x)", arg8),
-            cpu::AddressMode::ZeroPageIndexedWithX => print!(" ${:02x},x", arg8),
-            cpu::AddressMode::ZeroPageIndexedWithY => print!(" ${:02x},y", arg8),
-            cpu::AddressMode::ZeroPageIndirect => print!(" (${:02x})", arg8),
-            cpu::AddressMode::ZeroPageIndirectIndexedWithY => print!(" (${:02x},y)", arg8),
+            mos6502::AddressMode::Absolute => print!(" {}", sym),
+            mos6502::AddressMode::AbsoluteIndexedIndirect => print!(" ({},x)", sym),
+            mos6502::AddressMode::AbsoluteIndexedWithX => print!(" {},x", sym),
+            mos6502::AddressMode::AbsoluteIndexedWithY => print!(" {},y", sym),
+            mos6502::AddressMode::AbsoluteIndirect => print!(" ({})", sym),
+            mos6502::AddressMode::Accumulator => {}
+            mos6502::AddressMode::ImmediateAddressing => print!(" #${:02x}", arg8),
+            mos6502::AddressMode::Implied => {}
+            mos6502::AddressMode::ProgramCounterRelative => print!(" #${:02x}", arg8),
+            mos6502::AddressMode::Stack => {}
+            mos6502::AddressMode::ZeroPage => print!(" ${:02x}", arg8),
+            mos6502::AddressMode::ZeroPageIndexedIndirect => print!(" (${:02x},x)", arg8),
+            mos6502::AddressMode::ZeroPageIndexedWithX => print!(" ${:02x},x", arg8),
+            mos6502::AddressMode::ZeroPageIndexedWithY => print!(" ${:02x},y", arg8),
+            mos6502::AddressMode::ZeroPageIndirect => print!(" (${:02x})", arg8),
+            mos6502::AddressMode::ZeroPageIndirectIndexedWithY => print!(" (${:02x},y)", arg8),
         }
     }
 }

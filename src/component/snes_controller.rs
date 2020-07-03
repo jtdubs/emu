@@ -14,9 +14,9 @@ pub enum Button {
 
 #[derive(Debug)]
 pub struct SNESController {
-    pub state: u8, // current, ephemeral button states
-    pub latch: u8, // latched button states.  button presses immediately update the latch.
-    pub shift: u8, // shift register value.  transfers from latch on latch signal.
+    state: u8, // current, ephemeral button states
+    latch: u8, // latched button states.  button presses immediately update the latch.
+    shift: u8, // shift register value.  transfers from latch on latch signal.
 }
 
 impl SNESController {

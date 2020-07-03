@@ -20,7 +20,7 @@ pub trait Ports {
 }
 
 #[allow(dead_code)]
-pub struct W65C22<PortsType: Ports> {
+pub struct MOS6522<PortsType: Ports> {
     pub orb: u8,
     pub ora: u8,
     pub ddrb: u8,
@@ -33,12 +33,12 @@ pub struct W65C22<PortsType: Ports> {
     pub pcr: u8,
     pub ifr: Cell<u8>,
     pub ier: u8,
-    pub ports: PortsType
+    pub ports: PortsType,
 }
 
-impl<PortsType: Ports> fmt::Debug for W65C22<PortsType> {
+impl<PortsType: Ports> fmt::Debug for MOS6522<PortsType> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("W65C22")
+        f.debug_struct("MOS6522")
             .field("orb", &self.orb)
             .field("ora", &self.ora)
             .field("ddrb", &self.ddrb)
@@ -47,9 +47,9 @@ impl<PortsType: Ports> fmt::Debug for W65C22<PortsType> {
     }
 }
 
-impl<PortsType: Ports> W65C22<PortsType> {
-    pub fn new(ports: PortsType) -> W65C22<PortsType> {
-        W65C22 {
+impl<PortsType: Ports> MOS6522<PortsType> {
+    pub fn new(ports: PortsType) -> MOS6522<PortsType> {
+        MOS6522 {
             orb: 0,
             ora: 0,
             ddrb: 0,
@@ -129,27 +129,24 @@ impl<PortsType: Ports> W65C22<PortsType> {
             0x6 => (self.t1l & 0x00ff) as u8,
             0x7 => (self.t1l >> 8) as u8,
             0x8 => {
-                unimplemented!("W65C22 - Read T2C_L");
+                unimplemented!("MOS6522 - Read T2C_L");
             }
             0x9 => {
-                unimplemented!("W65C22 - Read T2C_H");
+                unimplemented!("MOS6522 - Read T2C_H");
             }
             0xA => {
-                unimplemented!("W65C22 - Read SR");
+                unimplemented!("MOS6522 - Read SR");
             }
             0xB => {
-                unimplemented!("W65C22 - Read ACR");
+                unimplemented!("MOS6522 - Read ACR");
             }
             0xC => {
-                unimplemented!("W65C22 - Read PCR");
+                unimplemented!("MOS6522 - Read PCR");
             }
             0xD => self.ifr.get(),
             0xE => self.ier,
-            0xF => {
-                (self.ora & self.ddra)
-                    | (self.ports.peek(Port::A) & !self.ddra)
-            }
-            _ => panic!("attempt to access invalid W65C22 register: {}", addr),
+            0xF => (self.ora & self.ddra) | (self.ports.peek(Port::A) & !self.ddra),
+            _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         }
     }
 
@@ -172,27 +169,24 @@ impl<PortsType: Ports> W65C22<PortsType> {
             }
             0x7 => (self.t1l >> 8) as u8,
             0x8 => {
-                unimplemented!("W65C22 - Read T2C_L");
+                unimplemented!("MOS6522 - Read T2C_L");
             }
             0x9 => {
-                unimplemented!("W65C22 - Read T2C_H");
+                unimplemented!("MOS6522 - Read T2C_H");
             }
             0xA => {
-                unimplemented!("W65C22 - Read SR");
+                unimplemented!("MOS6522 - Read SR");
             }
             0xB => {
-                unimplemented!("W65C22 - Read ACR");
+                unimplemented!("MOS6522 - Read ACR");
             }
             0xC => {
-                unimplemented!("W65C22 - Read PCR");
+                unimplemented!("MOS6522 - Read PCR");
             }
             0xD => self.ifr.get(),
             0xE => self.ier,
-            0xF => {
-                (self.ora & self.ddra)
-                    | (self.ports.read(Port::A) & !self.ddra)
-            }
-            _ => panic!("attempt to access invalid W65C22 register: {}", addr),
+            0xF => (self.ora & self.ddra) | (self.ports.read(Port::A) & !self.ddra),
+            _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         };
         debug!("R @ {:04x} = {:02x}", addr, data);
         data
@@ -206,7 +200,7 @@ impl<PortsType: Ports> W65C22<PortsType> {
                 self.ports.write(Port::B, self.orb);
             }
             0x1 => {
-                unimplemented!("W65C22 - Access to ORA w/ handshake");
+                unimplemented!("MOS6522 - Access to ORA w/ handshake");
             }
             0x2 => {
                 self.ddrb = data;
@@ -230,19 +224,19 @@ impl<PortsType: Ports> W65C22<PortsType> {
                 self.clear_interrupt(Interrupts::T1);
             }
             0x8 => {
-                unimplemented!("W65C22 - Write T2C_H");
+                unimplemented!("MOS6522 - Write T2C_H");
             }
             0x9 => {
-                unimplemented!("W65C22 - Write T2C_H");
+                unimplemented!("MOS6522 - Write T2C_H");
             }
             0xA => {
-                unimplemented!("W65C22 - Write SR");
+                unimplemented!("MOS6522 - Write SR");
             }
             0xB => {
                 self.acr = data;
             }
             0xC => {
-                unimplemented!("W65C22 - Write PCR");
+                unimplemented!("MOS6522 - Write PCR");
             }
             0xD => {
                 *self.ifr.get_mut() &= !data;
@@ -254,7 +248,7 @@ impl<PortsType: Ports> W65C22<PortsType> {
                 self.ora = data & self.ddra;
                 self.ports.write(Port::A, self.ora);
             }
-            _ => panic!("attempt to access invalid W65C22 register: {}", addr),
+            _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         }
     }
 }

@@ -2,7 +2,7 @@ use log::{debug, info};
 use std::fmt;
 
 #[derive(Clone, Copy, Debug)]
-pub enum CPUState {
+enum CPUState {
     Init(u8),
     Run,
     Wait,
@@ -103,7 +103,7 @@ pub enum Instruction {
     WAI,
 }
 
-pub type Opcode = (Instruction, AddressMode);
+type Opcode = (Instruction, AddressMode);
 
 fn decode(val: u8) -> Opcode {
     match val {
@@ -257,7 +257,7 @@ fn decode(val: u8) -> Opcode {
         0x56 => (Instruction::LSR, AddressMode::ZeroPageIndexedWithX),
 
         0xEA => (Instruction::NOP(1, 2), AddressMode::Implied),
-        
+
         0x02 => (Instruction::NOP(2, 2), AddressMode::Implied),
         0x22 => (Instruction::NOP(2, 2), AddressMode::Implied),
         0x42 => (Instruction::NOP(2, 2), AddressMode::Implied),
@@ -265,7 +265,7 @@ fn decode(val: u8) -> Opcode {
         0x82 => (Instruction::NOP(2, 2), AddressMode::Implied),
         0xC2 => (Instruction::NOP(2, 2), AddressMode::Implied),
         0xE2 => (Instruction::NOP(2, 2), AddressMode::Implied),
-        
+
         0x03 => (Instruction::NOP(1, 1), AddressMode::Implied),
         0x13 => (Instruction::NOP(1, 1), AddressMode::Implied),
         0x23 => (Instruction::NOP(1, 1), AddressMode::Implied),
@@ -302,7 +302,7 @@ fn decode(val: u8) -> Opcode {
         0xBB => (Instruction::NOP(1, 1), AddressMode::Implied),
         0xEB => (Instruction::NOP(1, 1), AddressMode::Implied),
         0xFB => (Instruction::NOP(1, 1), AddressMode::Implied),
-        
+
         0x5C => (Instruction::NOP(3, 8), AddressMode::Implied),
         0xDC => (Instruction::NOP(3, 4), AddressMode::Implied),
         0xFC => (Instruction::NOP(3, 4), AddressMode::Implied),
@@ -434,25 +434,25 @@ pub trait Bus {
     fn write(&mut self, addr: u16, val: u8);
 }
 
-pub struct W65C02S<BusType: Bus> {
-    pub state: CPUState, // cpu state
-    pub ir: Opcode,      // instruction register
-    pub tcu: u8,         // timing control unit
-    pub a: u8,           // accumulator register
-    pub x: u8,           // index register 'x'
-    pub y: u8,           // index register 'y'
-    pub p: u8,           // processor status register
-    pub pc: u16,         // program counter register
-    pub s: u8,           // stack pointer register
-    pub temp8: u8,       // temporary storage
-    pub temp16: u16,     // temporary storage
-    pub interrupt: bool, // an interrupt is available
+pub struct MOS6502<BusType: Bus> {
+    state: CPUState, // cpu state
+    pub ir: Opcode,  // instruction register
+    pub tcu: u8,     // timing control unit
+    pub a: u8,       // accumulator register
+    pub x: u8,       // index register 'x'
+    pub y: u8,       // index register 'y'
+    pub p: u8,       // processor status register
+    pub pc: u16,     // program counter register
+    pub s: u8,       // stack pointer register
+    temp8: u8,       // temporary storage
+    temp16: u16,     // temporary storage
+    interrupt: bool, // an interrupt is available
     pub bus: BusType,
 }
 
-impl<BusType: Bus> fmt::Debug for W65C02S<BusType> {
+impl<BusType: Bus> fmt::Debug for MOS6502<BusType> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("W65C02S")
+        f.debug_struct("MOS6502")
             .field("state", &self.state)
             .field("ir", &self.ir)
             .field("tcu", &self.tcu)
@@ -468,9 +468,9 @@ impl<BusType: Bus> fmt::Debug for W65C02S<BusType> {
     }
 }
 
-impl<BusType: Bus> W65C02S<BusType> {
-    pub fn new(bus : BusType) -> W65C02S<BusType> {
-        W65C02S {
+impl<BusType: Bus> MOS6502<BusType> {
+    pub fn new(bus: BusType) -> MOS6502<BusType> {
+        MOS6502 {
             state: CPUState::Init(0),
             ir: (Instruction::NOP(0, 0), AddressMode::Implied),
             tcu: 0,
@@ -606,7 +606,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                         } else {
                             self.ir = decode(self.fetch());
                             debug!("DECODE: {:x?}", self.ir);
-                            
+
                             if self.ir.0 == Instruction::NOP(1, 1) {
                                 self.tcu = 0;
                             } else {
@@ -639,7 +639,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                                 .wrapping_add(op2)
                                 .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
                             self.a = sum as u8;
-                            
+
                             self.update_zero_flag(self.a == 0);
                             self.update_negative_flag(self.a);
                             self.update_carry_flag(sum & 0x100 == 0x100);
@@ -664,7 +664,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                             self.update_carry_flag(sum & 0xFF00 != 0);
                             self.update_zero_flag(self.a == 0);
                             self.update_negative_flag(self.a);
-                                                        
+
                             self.tcu += 1;
                         }
                     }
@@ -679,7 +679,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::ADC, AddressMode::ZeroPageIndirect), 5) => {
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
                             panic!("ADC can only take an extra cycle in decimal mode!");
-                        } else {                            
+                        } else {
                             self.tcu = 0;
                         }
                     }
@@ -1575,7 +1575,6 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 4)
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 4) => {
                         let op1 = self.a as u16;
-                        
 
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
                             let op2 = if self.ir.1 == AddressMode::ImmediateAddressing {
@@ -1583,7 +1582,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                             } else {
                                 !self.read(self.temp16) as u16
                             };
-                            
+
                             let sum = op1
                                 .wrapping_add(op2)
                                 .wrapping_add((self.p & (CPUFlag::Carry as u8)) as u16);
@@ -1601,10 +1600,9 @@ impl<BusType: Bus> W65C02S<BusType> {
                             } else {
                                 self.read(self.temp16) as u16
                             };
-                            
+
                             // println!("{:04x?} - {:04x?} = ??", op1, op2);
                             // println!("flags: {:02x?}", self.p);
-
 
                             let mut nines_complement = 0x99u16.wrapping_sub(op2);
                             if nines_complement & 0x0f > 9 {
@@ -1625,7 +1623,9 @@ impl<BusType: Bus> W65C02S<BusType> {
 
                             // println!("{:04x?} + {:04x?} + {:04x?} = ??", op1, nines_complement, carry_in);
 
-                            let mut sum = (op1 & 0x0f).wrapping_add(nines_complement & 0x0f).wrapping_add(carry_in);
+                            let mut sum = (op1 & 0x0f)
+                                .wrapping_add(nines_complement & 0x0f)
+                                .wrapping_add(carry_in);
 
                             // println!("sum is 0x{:04x}", sum);
 
@@ -1633,7 +1633,9 @@ impl<BusType: Bus> W65C02S<BusType> {
                                 sum = sum.wrapping_add(0x06);
                             }
 
-                            sum = sum.wrapping_add(op1 & 0xf0).wrapping_add(nines_complement & 0xf0);
+                            sum = sum
+                                .wrapping_add(op1 & 0xf0)
+                                .wrapping_add(nines_complement & 0xf0);
                             if (sum >> 4) > 9 {
                                 sum = sum.wrapping_add(0x60);
                             }
@@ -1644,11 +1646,13 @@ impl<BusType: Bus> W65C02S<BusType> {
 
                             // println!("a is 0x{:02x}", self.a);
 
-                            self.update_overflow_flag(((sum ^ op1) & (sum ^ nines_complement)) & 0x80 == 0x80);
+                            self.update_overflow_flag(
+                                ((sum ^ op1) & (sum ^ nines_complement)) & 0x80 == 0x80,
+                            );
                             self.update_carry_flag(sum & 0xFF00 != 0);
                             self.update_zero_flag(self.a == 0);
                             self.update_negative_flag(self.a);
-                                                        
+
                             self.tcu += 1;
                         }
                     }
@@ -1663,7 +1667,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 5) => {
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
                             panic!("SBC can only take an extra cycle in decimal mode!");
-                        } else {                            
+                        } else {
                             self.tcu = 0;
                         }
                     }
@@ -1976,7 +1980,12 @@ impl<BusType: Bus> W65C02S<BusType> {
                     _ => {
                         self.state = CPUState::Halt;
                         info!("CPU: {:x?}", self);
-                        unimplemented!("Unimplemented opcode: PC={:?}, IR={:?}, TCU={:?}", self.pc, self.ir, self.tcu);
+                        unimplemented!(
+                            "Unimplemented opcode: PC={:?}, IR={:?}, TCU={:?}",
+                            self.pc,
+                            self.ir,
+                            self.tcu
+                        );
                     }
                 }
             }

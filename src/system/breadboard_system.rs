@@ -1,14 +1,18 @@
-use crate::components::*;
+use crate::component::hd44780::{RegisterSelector, HD44780};
+use crate::component::mos6502::{Bus, MOS6502};
+use crate::component::mos6522::{Port, Ports, MOS6522};
+use crate::component::snes_controller::SNESController;
+use crate::component::{RAM, ROM};
 use crate::system::System;
 
 pub struct BreadboardSystem {
-    cpu: W65C02S<SystemBus>,
+    cpu: MOS6502<SystemBus>,
 }
 
 impl BreadboardSystem {
     pub fn new(rom_path: &str) -> BreadboardSystem {
         BreadboardSystem {
-            cpu: W65C02S::new(SystemBus::new(rom_path)),
+            cpu: MOS6502::new(SystemBus::new(rom_path)),
         }
     }
 }
@@ -21,11 +25,11 @@ impl System for BreadboardSystem {
         self.cpu.is_halted()
     }
 
-    fn get_cpu(&self) -> &W65C02S<Self::BusType> {
+    fn get_cpu(&self) -> &MOS6502<Self::BusType> {
         &self.cpu
     }
 
-    fn get_display(&mut self) -> Option<&mut HD44780U> {
+    fn get_display(&mut self) -> Option<&mut HD44780> {
         Some(&mut self.cpu.bus.per.ports.dsp)
     }
 
@@ -37,7 +41,7 @@ impl System for BreadboardSystem {
         Some(&mut self.cpu.bus.per.ports.con)
     }
 
-    fn get_peripheral_controller(&self) -> Option<&W65C22<Self::PortsType>> {
+    fn get_peripheral_controller(&self) -> Option<&MOS6522<Self::PortsType>> {
         Some(&self.cpu.bus.per)
     }
 
@@ -54,7 +58,7 @@ impl System for BreadboardSystem {
 }
 
 pub struct SystemBus {
-    pub per: W65C22<Peripherals>,
+    pub per: MOS6522<Peripherals>,
     pub ram: RAM,
     pub rom: ROM,
 }
@@ -68,7 +72,7 @@ impl SystemBus {
         SystemBus {
             rom: ROM::load(rom_path),
             ram: RAM::new(0x4000),
-            per: W65C22::new(Peripherals::new()),
+            per: MOS6522::new(Peripherals::new()),
         }
     }
 }
@@ -112,16 +116,16 @@ impl Bus for SystemBus {
 }
 
 pub struct Peripherals {
-    pub dsp: HD44780U,
+    pub dsp: HD44780,
     pub con: SNESController,
-    pub a_cache: u8,
-    pub b_cache: u8,
+    a_cache: u8,
+    b_cache: u8,
 }
 
 impl Peripherals {
     pub fn new() -> Peripherals {
         Peripherals {
-            dsp: HD44780U::new(),
+            dsp: HD44780::new(),
             con: SNESController::new(),
             a_cache: 0,
             b_cache: 0,
@@ -148,19 +152,14 @@ impl Peripherals {
         const LATCH: u8 = 0x02;
         const CLK: u8 = 0x04;
 
-        (
-            self.a_cache & LATCH == LATCH,
-            self.a_cache & CLK == CLK,
-        )
+        (self.a_cache & LATCH == LATCH, self.a_cache & CLK == CLK)
     }
 }
 
 impl Ports for Peripherals {
     fn peek(&self, port: Port) -> u8 {
         match port {
-            Port::A => {
-                self.con.peek() & 0x07
-            }
+            Port::A => self.con.peek() & 0x07,
             Port::B => {
                 let (rs, rw, e) = self.get_dsp_pins();
                 self.dsp.peek(rs, rw, e)
@@ -170,9 +169,7 @@ impl Ports for Peripherals {
 
     fn read(&mut self, port: Port) -> u8 {
         match port {
-            Port::A => {
-                self.con.read() & 0x07
-            }
+            Port::A => self.con.read() & 0x07,
             Port::B => {
                 let (rs, rw, e) = self.get_dsp_pins();
                 self.dsp.read(rs, rw, e)
@@ -193,7 +190,6 @@ impl Ports for Peripherals {
         let (rs, rw, e) = self.get_dsp_pins();
         self.dsp.write(rs, rw, e, self.b_cache);
 
-        
         let (latch, clk) = self.get_con_pins();
         self.con.write(latch, clk);
     }

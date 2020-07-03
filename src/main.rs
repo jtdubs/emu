@@ -1,21 +1,21 @@
-use std::io::{self, Write};
 use std::env;
+use std::io::{self, Write};
 
-mod components;
+mod component;
 mod debugger;
-mod breadboard_system;
-mod cpu_test_system;
 mod system;
 
 use debugger::Debugger;
-use breadboard_system::BreadboardSystem;
-use cpu_test_system::CPUTestSystem;
-use system::System;
+use system::*;
 
 fn main() {
     env_logger::init();
 
-    match env::args().nth(1).unwrap_or("breadboard".to_string()).as_str() {
+    match env::args()
+        .nth(1)
+        .unwrap_or("breadboard".to_string())
+        .as_str()
+    {
         "cpu_test" => {
             let rom = env::args().nth(2).unwrap();
             run(Debugger::new(CPUTestSystem::new(rom.as_str(), 0x400)))
@@ -30,12 +30,14 @@ fn main() {
             }
 
             run(d);
-         }
-        _ => { panic!("invalid board"); }
+        }
+        _ => {
+            panic!("invalid board");
+        }
     };
 }
 
-fn run<SystemType: System>(mut dbg: Debugger<SystemType>) {        
+fn run<SystemType: System>(mut dbg: Debugger<SystemType>) {
     let mut last_command: Option<String> = None;
 
     loop {

@@ -3,7 +3,7 @@ use std::fmt;
 use std::iter::FromIterator;
 
 #[derive(Debug)]
-pub enum State {
+enum State {
     Idle,
     Busy(usize),
 }
@@ -14,21 +14,21 @@ pub enum RegisterSelector {
     Data = 1,
 }
 
-pub struct HD44780U {
-    pub state: State,
-    pub addr: u8,
-    pub line1: Vec<u8>,
-    pub line2: Vec<u8>,
-    pub charset: Vec<char>,
-    pub updated: bool,
-    pub e: bool,
+pub struct HD44780 {
+    state: State,
+    addr: u8,
+    line1: Vec<u8>,
+    line2: Vec<u8>,
+    charset: Vec<char>,
+    updated: bool,
+    e: bool,
 }
 
-impl fmt::Debug for HD44780U {
+impl fmt::Debug for HD44780 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let (line1, line2) = self.get_output();
 
-        f.debug_struct("HD44780U")
+        f.debug_struct("HD44780")
             .field("state", &self.state)
             .field("addr", &self.addr)
             .field("line1", &line1)
@@ -37,8 +37,8 @@ impl fmt::Debug for HD44780U {
     }
 }
 
-impl HD44780U {
-    pub fn new() -> HD44780U {
+impl HD44780 {
+    pub fn new() -> HD44780 {
         let mut line1 = Vec::new();
         line1.resize(40, ' ' as u8);
 
@@ -64,8 +64,7 @@ impl HD44780U {
             '█',
         ];
 
-        HD44780U {
-            // state: State::Busy(15000),
+        HD44780 {
             state: State::Busy(150),
             addr: 0,
             line1: line1,
@@ -104,7 +103,7 @@ impl HD44780U {
         if !rw {
             panic!("attempt to read display without read bit set");
         }
-        
+
         match rs {
             RegisterSelector::Instruction => {
                 let mut result = self.addr;
@@ -129,10 +128,10 @@ impl HD44780U {
 
     pub fn write(&mut self, rs: RegisterSelector, rw: bool, e: bool, val: u8) {
         info!("W {:?} = {:02x}", rs, val);
-        
+
         let last_e = self.e;
         self.e = e;
-        
+
         if rw {
             return;
         }
@@ -166,13 +165,13 @@ impl HD44780U {
                 }
                 RegisterSelector::Data => {
                     let offset = (self.addr & 0x3F) as usize;
-    
+
                     if self.addr & 0x40 == 0x00 {
                         self.line1[offset] = val;
                     } else {
                         self.line2[offset] = val;
                     };
-    
+
                     self.addr += 1;
                     if self.addr & 0x40 == 0x00 {
                         if self.addr > 40 {
@@ -183,7 +182,7 @@ impl HD44780U {
                             self.addr = 0x00;
                         }
                     }
-    
+
                     self.state = State::Busy(37);
                     self.updated = true;
                 }
