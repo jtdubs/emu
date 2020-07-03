@@ -1,15 +1,8 @@
-TODO:
-- 6502 instruction testing
-    - functional_test_no_decimal - PASSED
-    - extended_opcodes_no_decimal - PASSED
-- decimal mode??
-- Better command-line invocation
-- Better error handling (less panics)
-
 Timing history:
 - Initial speed: 3.8MHz
 - Switch from Mutex to RefCell: 8.8MHz
 - Amortize timing measurements: 20MHz
 - Misc tiny tweaks: 20MHz
 - Re-write: 33MHz
+- Desktop PC: 100MHz
 - Timer: 1.00MHz

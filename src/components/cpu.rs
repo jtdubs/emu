@@ -1662,7 +1662,7 @@ impl<BusType: Bus> W65C02S<BusType> {
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirectIndexedWithY), 5)
                     | ((Instruction::SBC, AddressMode::ZeroPageIndirect), 5) => {
                         if self.p & (CPUFlag::Decimal as u8) == 0 {
-                            panic!("extra cycle only needed in non-decimal mode");
+                            panic!("SBC can only take an extra cycle in decimal mode!");
                         } else {                            
                             self.tcu = 0;
                         }

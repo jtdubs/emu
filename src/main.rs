@@ -21,8 +21,14 @@ fn main() {
             run(Debugger::new(CPUTestSystem::new(rom.as_str(), 0x400)))
         }
         "breadboard" => {
-            let mut d = Debugger::new(BreadboardSystem::new("rom.bin"));
-            d.read_symbols("rom.sym");
+            let rom = env::args().nth(2).unwrap();
+
+            let mut d = Debugger::new(BreadboardSystem::new(rom.as_str()));
+
+            if let Some(syms) = env::args().nth(3) {
+                d.read_symbols(syms.as_str());
+            }
+
             run(d);
          }
         _ => { panic!("invalid board"); }
