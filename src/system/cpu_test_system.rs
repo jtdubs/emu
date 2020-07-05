@@ -1,6 +1,6 @@
 use crate::component::hd44780::HD44780;
 use crate::component::mos6502::{Bus, MOS6502};
-use crate::component::mos6522::{Port, Ports, MOS6522};
+use crate::component::mos6522::{Ports, MOS6522};
 use crate::component::snes_controller::SNESController;
 use crate::component::RAM;
 use crate::system::System;
@@ -84,13 +84,23 @@ impl Bus for SystemBus {
 pub struct NullPorts {}
 
 impl Ports for NullPorts {
-    fn peek(&self, _port: Port) -> u8 {
+    fn peek_a(&self) -> u8 {
         unimplemented!();
     }
-    fn read(&mut self, _port: Port) -> u8 {
+    fn read_a(&mut self) -> u8 {
         unimplemented!();
     }
-    fn write(&mut self, _port: Port, _val: u8) {
+    fn write_a(&mut self, _val: u8) {
+        unimplemented!();
+    }
+
+    fn peek_b(&self) -> u8 {
+        unimplemented!();
+    }
+    fn read_b(&mut self) -> u8 {
+        unimplemented!();
+    }
+    fn write_b(&mut self, _val: u8) {
         unimplemented!();
     }
 }

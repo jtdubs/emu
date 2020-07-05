@@ -3,20 +3,18 @@ use std::cell::Cell;
 use std::fmt;
 
 #[derive(Debug)]
-pub enum Port {
-    A,
-    B,
-}
-
-#[derive(Debug)]
 enum Interrupts {
     T1 = 0x40,
 }
 
 pub trait Ports {
-    fn peek(&self, port: Port) -> u8;
-    fn read(&mut self, port: Port) -> u8;
-    fn write(&mut self, port: Port, val: u8);
+    fn peek_a(&self) -> u8;
+    fn read_a(&mut self) -> u8;
+    fn write_a(&mut self, val: u8);
+
+    fn peek_b(&self) -> u8;
+    fn read_b(&mut self) -> u8;
+    fn write_b(&mut self, val: u8);
 }
 
 #[allow(dead_code)]
@@ -118,7 +116,7 @@ impl<PortsType: Ports> MOS6522<PortsType> {
 
     pub fn peek(&self, addr: u16) -> u8 {
         match addr {
-            0x0 => (self.orb & self.ddrb) | (self.ports.peek(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (self.ports.peek_b() & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -145,14 +143,14 @@ impl<PortsType: Ports> MOS6522<PortsType> {
             }
             0xD => self.ifr.get(),
             0xE => self.ier,
-            0xF => (self.ora & self.ddra) | (self.ports.peek(Port::A) & !self.ddra),
+            0xF => (self.ora & self.ddra) | (self.ports.peek_a() & !self.ddra),
             _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         }
     }
 
     pub fn read(&mut self, addr: u16) -> u8 {
         let data = match addr {
-            0x0 => (self.orb & self.ddrb) | (self.ports.read(Port::B) & !self.ddrb),
+            0x0 => (self.orb & self.ddrb) | (self.ports.read_b() & !self.ddrb),
             0x1 => {
                 unimplemented!();
             }
@@ -185,7 +183,7 @@ impl<PortsType: Ports> MOS6522<PortsType> {
             }
             0xD => self.ifr.get(),
             0xE => self.ier,
-            0xF => (self.ora & self.ddra) | (self.ports.read(Port::A) & !self.ddra),
+            0xF => (self.ora & self.ddra) | (self.ports.read_a() & !self.ddra),
             _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         };
         debug!("R @ {:04x} = {:02x}", addr, data);
@@ -197,7 +195,7 @@ impl<PortsType: Ports> MOS6522<PortsType> {
         match addr {
             0x0 => {
                 self.orb = data & self.ddrb;
-                self.ports.write(Port::B, self.orb);
+                self.ports.write_b(self.orb);
             }
             0x1 => {
                 unimplemented!("MOS6522 - Access to ORA w/ handshake");
@@ -246,7 +244,7 @@ impl<PortsType: Ports> MOS6522<PortsType> {
             }
             0xF => {
                 self.ora = data & self.ddra;
-                self.ports.write(Port::A, self.ora);
+                self.ports.write_a(self.ora);
             }
             _ => panic!("attempt to access invalid MOS6522 register: {}", addr),
         }

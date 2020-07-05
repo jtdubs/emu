@@ -1,6 +1,6 @@
 use crate::component::hd44780::{RegisterSelector, HD44780};
 use crate::component::mos6502::{Bus, MOS6502};
-use crate::component::mos6522::{Port, Ports, MOS6522};
+use crate::component::mos6522::{Ports, MOS6522};
 use crate::component::snes_controller::SNESController;
 use crate::component::{RAM, ROM};
 use crate::system::System;
@@ -154,43 +154,42 @@ impl Peripherals {
 
         (self.a_cache & LATCH == LATCH, self.a_cache & CLK == CLK)
     }
-}
 
-impl Ports for Peripherals {
-    fn peek(&self, port: Port) -> u8 {
-        match port {
-            Port::A => self.con.peek() & 0x07,
-            Port::B => {
-                let (rs, rw, e) = self.get_dsp_pins();
-                self.dsp.peek(rs, rw, e)
-            }
-        }
-    }
-
-    fn read(&mut self, port: Port) -> u8 {
-        match port {
-            Port::A => self.con.read() & 0x07,
-            Port::B => {
-                let (rs, rw, e) = self.get_dsp_pins();
-                self.dsp.read(rs, rw, e)
-            }
-        }
-    }
-
-    fn write(&mut self, port: Port, val: u8) {
-        match port {
-            Port::A => {
-                self.a_cache = val;
-            }
-            Port::B => {
-                self.b_cache = val;
-            }
-        }
-
+    fn do_write(&mut self) {
         let (rs, rw, e) = self.get_dsp_pins();
         self.dsp.write(rs, rw, e, self.b_cache);
 
         let (latch, clk) = self.get_con_pins();
         self.con.write(latch, clk);
+    }
+}
+
+impl Ports for Peripherals {
+    fn peek_a(&self) -> u8 {
+        self.con.peek() & 0x07
+    }
+
+    fn read_a(&mut self) -> u8 {
+        self.con.read() & 0x07
+    }
+
+    fn write_a(&mut self, val: u8) {
+        self.a_cache = val;
+        self.do_write();
+    }
+
+    fn peek_b(&self) -> u8 {
+        let (rs, rw, e) = self.get_dsp_pins();
+        self.dsp.peek(rs, rw, e)
+    }
+
+    fn read_b(&mut self) -> u8 {
+        let (rs, rw, e) = self.get_dsp_pins();
+        self.dsp.read(rs, rw, e)
+    }
+
+    fn write_b(&mut self, val: u8) {
+        self.b_cache = val;
+        self.do_write();
     }
 }
