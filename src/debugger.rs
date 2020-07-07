@@ -32,6 +32,7 @@ pub struct Debugger<SystemType: System> {
     bench: bool,
 }
 
+#[allow(dead_code)]
 impl<SystemType: System> Debugger<SystemType> {
     pub fn new(sys: SystemType) -> Debugger<SystemType> {
         Debugger {
